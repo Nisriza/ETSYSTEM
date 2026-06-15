@@ -1,29 +1,147 @@
 import sqlite3 from 'sqlite3';
-import { open, Database } from 'sqlite';
+import { open } from 'sqlite';
 import path from 'path';
+import mysql from 'mysql2/promise';
 
-let dbInstance: Database | null = null;
+export interface AppDatabase {
+  get(sql: string, params?: any[]): Promise<any>;
+  all(sql: string, params?: any[]): Promise<any[]>;
+  run(sql: string, params?: any[]): Promise<{ lastID?: number; changes?: number }>;
+  exec(sql: string): Promise<void>;
+}
 
-export async function getDB(): Promise<Database> {
+let dbInstance: AppDatabase | null = null;
+
+// Query preprocessor to keep SQL dialect compatibility
+function preprocessQuery(sql: string, isMySQL: boolean): string {
+  if (!isMySQL) return sql;
+  let processed = sql;
+  
+  // Replace INSERT OR IGNORE with INSERT IGNORE
+  processed = processed.replace(/INSERT\s+OR\s+IGNORE/gi, 'INSERT IGNORE');
+  
+  // Replace AUTOINCREMENT with AUTO_INCREMENT
+  processed = processed.replace(/AUTOINCREMENT/gi, 'AUTO_INCREMENT');
+  
+  return processed;
+}
+
+export async function getDB(): Promise<AppDatabase> {
   if (dbInstance) return dbInstance;
 
+  const useMySQL = !!(
+    process.env.DB_HOST ||
+    process.env.MYSQL_HOST ||
+    process.env.DB_USER ||
+    process.env.DB_PASSWORD ||
+    process.env.DB_NAME
+  );
+
+  if (useMySQL) {
+    try {
+      console.log('Connecting to MySQL Database...');
+      const host = process.env.DB_HOST || process.env.MYSQL_HOST || '127.0.0.1';
+      const user = process.env.DB_USER || 'root';
+      const password = process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : '';
+      const database = process.env.DB_NAME || 'ets_system';
+      const port = parseInt(process.env.DB_PORT || '3306', 10);
+
+      const connection = await mysql.createConnection({
+        host,
+        user,
+        password,
+        database,
+        port
+      });
+
+      console.log('Successfully connected to MySQL database:', database);
+
+      const mysqlAdapter: AppDatabase = {
+        async get(sql: string, params: any[] = []): Promise<any> {
+          const processedSql = preprocessQuery(sql, true);
+          const [rows]: [any, any] = await connection.execute(processedSql, params);
+          return rows && rows.length > 0 ? rows[0] : null;
+        },
+        async all(sql: string, params: any[] = []): Promise<any[]> {
+          const processedSql = preprocessQuery(sql, true);
+          const [rows]: [any, any] = await connection.execute(processedSql, params);
+          return Array.isArray(rows) ? rows : [];
+        },
+        async run(sql: string, params: any[] = []): Promise<{ lastID?: number; changes?: number }> {
+          const processedSql = preprocessQuery(sql, true);
+          const [result]: [any, any] = await connection.execute(processedSql, params);
+          return {
+            lastID: result ? result.insertId : undefined,
+            changes: result ? result.affectedRows : undefined
+          };
+        },
+        async exec(sql: string): Promise<void> {
+          // MySQL execute doesn't support multiple statement query sets easily, 
+          // so we split by semicolon and execute them sequentially
+          const statements = sql
+            .split(';')
+            .map(s => s.trim())
+            .filter(s => s.length > 0);
+          for (const rawStatement of statements) {
+            const processedStatement = preprocessQuery(rawStatement, true);
+            await connection.query(processedStatement);
+          }
+        }
+      };
+
+      // Initialize the schema if running for the first time
+      await initializeSchema(mysqlAdapter);
+
+      dbInstance = mysqlAdapter;
+      return dbInstance;
+    } catch (mysqlError) {
+      console.warn('MySQL connection failed, falling back to local SQLite database...', mysqlError);
+    }
+  }
+
+  // Fallback to local SQLite database
+  console.log('Initializing local SQLite database (SQLITE3_LOADED_SUCCESSFULLY)...');
   const dbPath = path.resolve(process.cwd(), 'ets_system.db');
   
-  dbInstance = await open({
+  const sqliteDB = await open({
     filename: dbPath,
     driver: sqlite3.Database
   });
 
   // Enable foreign key support
-  await dbInstance.run('PRAGMA foreign_keys = ON;');
+  await sqliteDB.run('PRAGMA foreign_keys = ON;');
 
-  // Initialize Schema
-  await initializeSchema(dbInstance);
+  const sqliteAdapter: AppDatabase = {
+    async get(sql: string, params: any[] = []): Promise<any> {
+      const processedSql = preprocessQuery(sql, false);
+      return await sqliteDB.get(processedSql, params);
+    },
+    async all(sql: string, params: any[] = []): Promise<any[]> {
+      const processedSql = preprocessQuery(sql, false);
+      return await sqliteDB.all(processedSql, params);
+    },
+    async run(sql: string, params: any[] = []): Promise<{ lastID?: number; changes?: number }> {
+      const processedSql = preprocessQuery(sql, false);
+      const result = await sqliteDB.run(processedSql, params);
+      return {
+        lastID: result.lastID,
+        changes: result.changes
+      };
+    },
+    async exec(sql: string): Promise<void> {
+      const processedSql = preprocessQuery(sql, false);
+      await sqliteDB.exec(processedSql);
+    }
+  };
 
+  // Initialize SQLite Schema
+  await initializeSchema(sqliteAdapter);
+
+  dbInstance = sqliteAdapter;
   return dbInstance;
 }
 
-async function initializeSchema(db: Database) {
+async function initializeSchema(db: AppDatabase) {
   // CREATE Users Table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS Users (
@@ -67,9 +185,15 @@ async function initializeSchema(db: Database) {
       destination TEXT NOT NULL,
       ridership_count INTEGER NOT NULL
     );
-    CREATE INDEX IF NOT EXISTS idx_origin_dest ON Ridership (origin, destination);
-    CREATE INDEX IF NOT EXISTS idx_date_time ON Ridership (date, time);
   `);
+
+  // Index creation split up to prevent individual execution lock issues
+  try {
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_origin_dest ON Ridership (origin, destination);`);
+  } catch (e) {}
+  try {
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_date_time ON Ridership (date, time);`);
+  } catch (e) {}
 
   // CREATE Predictions Table
   await db.exec(`
@@ -162,13 +286,11 @@ async function initializeSchema(db: Database) {
     }
 
     // --- SEED ROUTES ---
-    // Let's seed routes between standard adjacent pairs
     // Stations ID's from 1 to 24
     for (let i = 1; i < etsStations.length; i++) {
       await db.run('INSERT OR IGNORE INTO Routes (origin_station_id, destination_station_id) VALUES (?, ?)', [i, i + 1]);
       await db.run('INSERT OR IGNORE INTO Routes (origin_station_id, destination_station_id) VALUES (?, ?)', [i + 1, i]);
     }
-    // Also seed some larger express routes, e.g., Butterworth to KL Sentral, Padang Besar to KL Sentral
     const butterworthId = etsStations.indexOf('Butterworth') + 1;
     const klSentralId = etsStations.indexOf('KL Sentral') + 1;
     const padangBesarId = etsStations.indexOf('Padang Besar') + 1;
@@ -194,7 +316,7 @@ async function initializeSchema(db: Database) {
       { name: 'Hari Raya Aidilfitri (Day 2)', date: '2026-03-21' },
       { name: 'Labour Day', date: '2026-05-01' },
       { name: 'Wesak Day', date: '2026-05-31' },
-      { name: 'Agong\'s Birthday', date: '2026-06-01' },
+      { name: "Agong's Birthday", date: '2020-06-01' },
       { name: 'Hari Raya Aidiladha', date: '2026-05-27' },
       { name: 'Awal Muharram', date: '2026-06-16' },
       { name: 'Maulidur Rasul', date: '2026-08-25' },
@@ -208,14 +330,9 @@ async function initializeSchema(db: Database) {
     }
   }
 
-  // --- SEED INITIAL ADMIN USER ---
-  // Default Admin: admin / admin123
-  // Default Operator: operator / operator123
-  // Default Passenger: passenger / passenger123
+  // --- SEED INITIAL USER ---
   const userCount = await db.get('SELECT COUNT(*) as count FROM Users');
   if (userCount && userCount.count === 0) {
-    // We'll use a pre-calculated hash or hash it at runtime (it runs once, so it's super fast, bcryptjs handles it)
-    // For fast seed we can hash on the fly
     const bcrypt = await import('bcryptjs');
     const adminHash = await bcrypt.hash('admin123', 10);
     const operatorHash = await bcrypt.hash('operator123', 10);
@@ -232,7 +349,7 @@ async function initializeSchema(db: Database) {
     ]);
   }
 
-  // --- SEED SAMPLE RIDERSHIP DATA FOR PREDICTION MODEL BASICS ---
+  // --- SEED SAMPLE RIDERSHIP DATA ---
   const ridershipCount = await db.get('SELECT COUNT(*) as count FROM Ridership');
   if (ridershipCount && ridershipCount.count === 0) {
     const list = [
@@ -241,10 +358,10 @@ async function initializeSchema(db: Database) {
       { date: '2026-04-01', time: '18:00:00', origin: 'Butterworth', destination: 'KL Sentral', count: 380 },
       { date: '2026-04-02', time: '08:00:00', origin: 'Butterworth', destination: 'KL Sentral', count: 290 },
       { date: '2026-04-02', time: '18:00:00', origin: 'Butterworth', destination: 'KL Sentral', count: 410 },
-      { date: '2026-04-03', time: '08:00:00', origin: 'Butterworth', destination: 'KL Sentral', count: 450 }, // Friday peak
-      { date: '2026-04-03', time: '18:00:00', origin: 'Butterworth', destination: 'KL Sentral', count: 580 }, // Friday weekend peak
-      { date: '2026-04-04', time: '09:00:00', origin: 'Butterworth', destination: 'KL Sentral', count: 520 }, // Saturday peak
-      { date: '2026-04-05', time: '15:00:00', origin: 'Butterworth', destination: 'KL Sentral', count: 490 }, // Sunday return peak
+      { date: '2026-04-03', time: '08:00:00', origin: 'Butterworth', destination: 'KL Sentral', count: 450 },
+      { date: '2026-04-03', time: '18:00:00', origin: 'Butterworth', destination: 'KL Sentral', count: 580 },
+      { date: '2026-04-04', time: '09:00:00', origin: 'Butterworth', destination: 'KL Sentral', count: 520 },
+      { date: '2026-04-05', time: '15:00:00', origin: 'Butterworth', destination: 'KL Sentral', count: 490 },
       { date: '2026-04-01', time: '08:00:00', origin: 'Ipoh', destination: 'KL Sentral', count: 240 },
       { date: '2026-04-01', time: '18:00:00', origin: 'Ipoh', destination: 'KL Sentral', count: 280 }
     ];

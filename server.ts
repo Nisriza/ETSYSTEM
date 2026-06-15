@@ -668,14 +668,22 @@ app.post('/api/operator/reports', authenticateToken, async (req: any, res) => {
 
     const db = await getDB();
 
-    await db.run(
-      `INSERT INTO Reports (operator_id, month, year, report_data)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT(operator_id, month, year) DO UPDATE SET
-       report_data = excluded.report_data,
-       generated_at = CURRENT_TIMESTAMP`,
-      [req.user.id, month, year, JSON.stringify(report_data)]
+    const existingReport = await db.get(
+      'SELECT id FROM Reports WHERE operator_id = ? AND month = ? AND year = ?',
+      [req.user.id, month, year]
     );
+
+    if (existingReport) {
+      await db.run(
+        'UPDATE Reports SET report_data = ?, generated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [JSON.stringify(report_data), existingReport.id]
+      );
+    } else {
+      await db.run(
+        'INSERT INTO Reports (operator_id, month, year, report_data) VALUES (?, ?, ?, ?)',
+        [req.user.id, month, year, JSON.stringify(report_data)]
+      );
+    }
 
     res.status(201).json({ success: true, message: 'Report generated and committed to Database.' });
   } catch (error) {
