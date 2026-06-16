@@ -174,6 +174,49 @@ app.post('/api/auth/logout', (req, res) => {
   res.json({ success: true });
 });
 
+app.post('/api/user/change-password', authenticateToken, async (req: any, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ error: 'Both old and new passwords are required.' });
+    }
+
+    const db = await getDB();
+    const user = await db.get('SELECT * FROM Users WHERE id = ?', [req.user.id]);
+    if (!user) {
+      return res.status(404).json({ error: 'User session not found.' });
+    }
+
+    // Compare with current password hash
+    const match = await bcrypt.compare(oldPassword, user.password_hash);
+    if (!match) {
+      return res.status(400).json({ error: 'The old password you entered is incorrect.' });
+    }
+
+    // Verify password hardness security rules
+    const hasUppercase = /[A-Z]/.test(newPassword);
+    const hasLowercase = /[a-z]/.test(newPassword);
+    const hasNumber = /[0-9]/.test(newPassword);
+    const hasSymbol = /[^A-Za-z0-9]/.test(newPassword);
+    const hasMinLength = newPassword.length >= 8;
+
+    if (!hasMinLength || !hasUppercase || !hasLowercase || !hasNumber || !hasSymbol) {
+      return res.status(400).json({
+        error: 'Password must be at least 8 characters long and contain at least: one uppercase letter, one lowercase letter, one number, and one special character (e.g., @, #, $, %, etc.).'
+      });
+    }
+
+    // Generate highly safe new bcrypt hash and update
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await db.run('UPDATE Users SET password_hash = ? WHERE id = ?', [newHash, req.user.id]);
+
+    res.json({ success: true, message: 'Password changed successfully! Keep it secure.' });
+  } catch (error) {
+    console.error('Password change error details:', error);
+    res.status(500).json({ error: 'Failed to update password due to a system error.' });
+  }
+});
+
 // ==========================================
 // 2. STATIONS & ROUTE CHECKS
 // ==========================================
@@ -578,7 +621,7 @@ app.get('/api/recommendations', authenticateToken, async (req: any, res) => {
 // 7. OPERATOR ANALYTICS & REPORTS (CRUD)
 // ==========================================
 
-app.get('/api/operator/analytics', authenticateToken, async (req, res) => {
+app.get('/api/operator/analytics', authenticateToken, async (req: any, res) => {
   try {
     const { month, year } = req.query;
     if (!month || !year) {

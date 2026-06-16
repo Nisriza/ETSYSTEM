@@ -11,7 +11,7 @@ interface PassengerViewProps {
   token: string;
 }
 
-type TabType = 'search' | 'trips' | 'feedback' | 'recommendations';
+type TabType = 'search' | 'trips' | 'feedback' | 'recommendations' | 'profile';
 
 export default function PassengerView({ user, token }: PassengerViewProps) {
   const [activeTab, setActiveTab] = useState<TabType>('search');
@@ -30,6 +30,14 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
     predictedRidership: number;
     demandLevel: 'Low' | 'Medium' | 'High' | 'Very High';
   } | null>(null);
+
+  // Password change states
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPass, setChangingPass] = useState(false);
+  const [passError, setPassError] = useState<string | null>(null);
+  const [passSuccess, setPassSuccess] = useState<string | null>(null);
 
   // Note Modal States
   const [showNoteModal, setShowNoteModal] = useState(false);
@@ -68,6 +76,56 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
     fetchFeedbackHistory();
     fetchHolidaysAndRecs();
   }, []);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPassError(null);
+    setPassSuccess(null);
+
+    if (newPassword !== confirmPassword) {
+      setPassError('New password and confirmation do not match.');
+      return;
+    }
+
+    // Client-side strength check
+    const hasUppercase = /[A-Z]/.test(newPassword);
+    const hasLowercase = /[a-z]/.test(newPassword);
+    const hasNumber = /[0-9]/.test(newPassword);
+    const hasSymbol = /[^A-Za-z0-9]/.test(newPassword);
+    const hasMinLength = newPassword.length >= 8;
+
+    if (!hasMinLength || !hasUppercase || !hasLowercase || !hasNumber || !hasSymbol) {
+      setPassError('Password must be at least 8 characters long and contain at least: one uppercase letter, one lowercase letter, one number, and one special character/symbol.');
+      return;
+    }
+
+    setChangingPass(true);
+    try {
+      const res = await fetch('/api/user/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ oldPassword, newPassword })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setPassSuccess('Your password has been securely updated!');
+        setOldPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        showToast('Security credentials updated successfully.');
+      } else {
+        setPassError(data.error || 'Failed to update password.');
+      }
+    } catch (e) {
+      setPassError('Network error or server unreachable.');
+    } finally {
+      setChangingPass(false);
+    }
+  };
 
   const fetchStations = async () => {
     try {
@@ -423,7 +481,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
           </div>
 
           <div className="flex items-center gap-2" id="tab-nav">
-            {(['search', 'trips', 'feedback', 'recommendations'] as const).map((tab) => (
+            {(['search', 'trips', 'feedback', 'recommendations', 'profile'] as const).map((tab) => (
               <button
                 key={tab}
                 id={`tab-btn-${tab}`}
@@ -441,7 +499,8 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
               >
                 {tab === 'search' ? 'Home/Search' : 
                  tab === 'trips' ? 'Saved Trips' : 
-                 tab === 'feedback' ? 'Crowd Feedback' : 'Holidays & Recommendations'}
+                 tab === 'feedback' ? 'Crowd Feedback' : 
+                 tab === 'recommendations' ? 'Holidays & Recommendations' : 'Profile Settings'}
               </button>
             ))}
           </div>
@@ -473,7 +532,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                       <select
                         id="select-origin"
                         disabled={step > 1}
-                        className="w-full py-2 px-3 border border-slate-250 bg-white rounded-xl text-sm focus:outline-none focus:border-indigo-600"
+                        className="w-full py-2 px-3 border border-slate-250 bg-white rounded-xl text-sm focus:outline-none focus:border-indigo-600 font-sans"
                         value={originId}
                         onChange={(e) => {
                           setOriginId(e.target.value);
@@ -481,8 +540,12 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                         }}
                       >
                         <option value="">Select origin...</option>
-                        {stations.map(s => (
-                          <option key={s.id} value={s.id}>{s.name}</option>
+                        {Array.from(new Set(stations.map(s => s.state || 'Other'))).map(stateName => (
+                          <optgroup key={stateName} label={`${stateName}`} className="font-bold text-slate-800 bg-slate-50 text-xs">
+                            {stations.filter(s => (s.state || 'Other') === stateName).map(s => (
+                              <option key={s.id} value={s.id} className="font-normal text-slate-700 bg-white text-sm">{s.name}</option>
+                            ))}
+                          </optgroup>
                         ))}
                       </select>
                     </div>
@@ -492,7 +555,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                       <select
                         id="select-destination"
                         disabled={step > 1}
-                        className="w-full py-2 px-3 border border-slate-250 bg-white rounded-xl text-sm focus:outline-none focus:border-indigo-600"
+                        className="w-full py-2 px-3 border border-slate-250 bg-white rounded-xl text-sm focus:outline-none focus:border-indigo-600 font-sans"
                         value={destId}
                         onChange={(e) => {
                           setDestId(e.target.value);
@@ -500,8 +563,12 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                         }}
                       >
                         <option value="">Select destination...</option>
-                        {stations.map(s => (
-                          <option key={s.id} value={s.id}>{s.name}</option>
+                        {Array.from(new Set(stations.map(s => s.state || 'Other'))).map(stateName => (
+                          <optgroup key={stateName} label={`${stateName}`} className="font-bold text-slate-800 bg-slate-50 text-xs">
+                            {stations.filter(s => (s.state || 'Other') === stateName).map(s => (
+                              <option key={s.id} value={s.id} className="font-normal text-slate-700 bg-white text-sm">{s.name}</option>
+                            ))}
+                          </optgroup>
                         ))}
                       </select>
                     </div>
@@ -903,13 +970,17 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                   <select
                     id="fb-origin"
                     required
-                    className="w-full py-2 px-3 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-indigo-600"
+                    className="w-full py-2 px-3 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-indigo-600 font-sans"
                     value={fbOrigin}
                     onChange={(e) => setFbOrigin(e.target.value)}
                   >
                     <option value="">Choose origin...</option>
-                    {stations.map(s => (
-                      <option key={s.id} value={s.name}>{s.name}</option>
+                    {Array.from(new Set(stations.map(s => s.state || 'Other'))).map(stateName => (
+                      <optgroup key={stateName} label={`${stateName}`} className="font-bold text-slate-800 bg-slate-50 text-xs">
+                        {stations.filter(s => (s.state || 'Other') === stateName).map(s => (
+                          <option key={s.id} value={s.name} className="font-normal text-slate-700 bg-white text-sm">{s.name}</option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                 </div>
@@ -919,13 +990,17 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                   <select
                     id="fb-dest"
                     required
-                    className="w-full py-2 px-3 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-indigo-600"
+                    className="w-full py-2 px-3 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-indigo-600 font-sans"
                     value={fbDest}
                     onChange={(e) => setFbDest(e.target.value)}
                   >
                     <option value="">Choose destination...</option>
-                    {stations.map(s => (
-                      <option key={s.id} value={s.name}>{s.name}</option>
+                    {Array.from(new Set(stations.map(s => s.state || 'Other'))).map(stateName => (
+                      <optgroup key={stateName} label={`${stateName}`} className="font-bold text-slate-800 bg-slate-50 text-xs">
+                        {stations.filter(s => (s.state || 'Other') === stateName).map(s => (
+                          <option key={s.id} value={s.name} className="font-normal text-slate-700 bg-white text-sm">{s.name}</option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                 </div>
@@ -1221,6 +1296,174 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ==================== SECURE PROFILE SETTINGS TAB ==================== */}
+        {activeTab === 'profile' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8" id="profile-component">
+            {/* Left Box: Account Context */}
+            <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col justify-between" id="profile-details-wrapper">
+              <div>
+                <span className="bg-indigo-50 border border-indigo-100 text-[#4f46e5] text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md">
+                  Active Session
+                </span>
+                <h3 className="font-display text-lg font-bold text-slate-800 mt-2">Identity Credentials</h3>
+                <p className="text-xs text-slate-500 mt-1">Review active security state & account registration scopes.</p>
+                
+                <div className="mt-6 space-y-4" id="profile-stats">
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Full Name</span>
+                    <span className="text-sm font-bold text-slate-700">{user.full_name}</span>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Username ID</span>
+                    <span className="text-sm font-bold text-slate-700">{user.username}</span>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Assigned Privilege Role</span>
+                    <span className="text-xs font-bold bg-[#e0e7ff] text-[#4f46e5] px-2 py-0.5 rounded-full inline-block uppercase tracking-wide mt-1">
+                      {user.role}
+                    </span>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Security Shield Status</span>
+                    <span className="text-xs font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full inline-block uppercase tracking-wide mt-1">
+                      {user.status || 'Active'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 pt-4 border-t border-slate-100 text-[11px] text-slate-400 font-semibold flex items-center gap-1.5 justify-center">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                <span>Encrypted with SHA-256 equivalent standard</span>
+              </div>
+            </div>
+
+            {/* Right Box: Change Password Form */}
+            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 md:p-8" id="profile-password-form">
+              <div className="mb-6">
+                <span className="bg-red-50 border border-red-100 text-red-650 text-red-650 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md">
+                  Cryptographic Control
+                </span>
+                <h3 className="font-display text-xl font-bold text-slate-800 mt-2">Update Account Password</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Enhance security by updating your sign-in credentials. Multi-factor policies require a highly secure setup.
+                </p>
+              </div>
+
+              {passSuccess && (
+                <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-xl flex items-center gap-3 text-xs" id="pass-success-alert">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                  <div className="font-semibold">{passSuccess}</div>
+                </div>
+              )}
+
+              {passError && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-800 rounded-xl flex items-center gap-3 text-xs" id="pass-error-alert">
+                  <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
+                  <div className="font-semibold">{passError}</div>
+                </div>
+              )}
+
+              <form onSubmit={handleChangePassword} className="space-y-4" id="form-change-pass">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1" htmlFor="old-password">
+                    Current Password
+                  </label>
+                  <input
+                    id="old-password"
+                    type="password"
+                    required
+                    className="w-full py-2 px-3.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-600 font-sans"
+                    placeholder="Enter current active password"
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1" htmlFor="new-password">
+                      New Strong Password
+                    </label>
+                    <input
+                      id="new-password"
+                      type="password"
+                      required
+                      className="w-full py-2 px-3.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-600 font-sans"
+                      placeholder="At least 8 complex characters"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1" htmlFor="confirm-password">
+                      Confirm New Password
+                    </label>
+                    <input
+                      id="confirm-password"
+                      type="password"
+                      required
+                      className="w-full py-2 px-3.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-600 font-sans"
+                      placeholder="Re-enter new secure password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Password strength visual guidelines */}
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 mt-6" id="pass-hardness-guide">
+                  <h4 className="text-xs font-bold text-slate-700 mb-2">Required Encryption Requirements</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                    <div className="flex items-center gap-2 font-medium">
+                      <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${newPassword.length >= 8 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-500'}`}>
+                        {newPassword.length >= 8 ? '✓' : '•'}
+                      </span>
+                      <span className={newPassword.length >= 8 ? 'text-emerald-700' : 'text-slate-500'}>Minimum 8 characters</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 font-medium">
+                      <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${/[^A-Za-z0-9]/.test(newPassword) ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-500'}`}>
+                        {/[^A-Za-z0-9]/.test(newPassword) ? '✓' : '•'}
+                      </span>
+                      <span className={/[^A-Za-z0-9]/.test(newPassword) ? 'text-emerald-700' : 'text-slate-500'}>At least one symbol (e.g., @, #, $, !)</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 font-medium">
+                      <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${/[A-Z]/.test(newPassword) ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-500'}`}>
+                        {/[A-Z]/.test(newPassword) ? '✓' : '•'}
+                      </span>
+                      <span className={/[A-Z]/.test(newPassword) ? 'text-emerald-700' : 'text-slate-500'}>At least one uppercase letter (A-Z)</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 font-medium">
+                      <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${/[0-9]/.test(newPassword) ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-500'}`}>
+                        {/[0-9]/.test(newPassword) ? '✓' : '•'}
+                      </span>
+                      <span className={/[0-9]/.test(newPassword) ? 'text-emerald-700' : 'text-slate-500'}>At least one numeric digit (0-9)</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 flex justify-end">
+                  <button
+                    id="btn-submit-change-pass"
+                    type="submit"
+                    disabled={changingPass}
+                    className="bg-slate-900 border-b-2 border-black hover:bg-slate-800 text-white rounded-xl px-6 py-2.5 text-xs font-extrabold transition cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {changingPass ? 'Changing credentials...' : 'Commit Password Change'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
       </div>

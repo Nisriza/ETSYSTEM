@@ -1,6 +1,6 @@
 {
-  "name": "ETS Ridership Prediction and Travel Decision Support System",
-  "description": "An AI-powered full-stack travel decision app using Random Forest to predict Ridership, analyze public holidays, log commuter crowd feedback, and compile management analytics.",
+  "name": "Web-based Public Transport Ridership Prediction and Travel Planning System",
+  "description": "An AI-powered full-stack public transport ridership prediction and travel planning application using advanced predictive models, public holiday tracking, commute feedback logging, and operator analytics.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

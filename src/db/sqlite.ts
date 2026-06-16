@@ -2,6 +2,7 @@ import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import path from 'path';
 import mysql from 'mysql2/promise';
+import pg from 'pg';
 
 export interface AppDatabase {
   get(sql: string, params?: any[]): Promise<any>;
@@ -13,22 +14,135 @@ export interface AppDatabase {
 let dbInstance: AppDatabase | null = null;
 
 // Query preprocessor to keep SQL dialect compatibility
-function preprocessQuery(sql: string, isMySQL: boolean): string {
-  if (!isMySQL) return sql;
+function preprocessQuery(sql: string, dialect: 'sqlite' | 'mysql' | 'postgresql'): string {
   let processed = sql;
-  
-  // Replace INSERT OR IGNORE with INSERT IGNORE
-  processed = processed.replace(/INSERT\s+OR\s+IGNORE/gi, 'INSERT IGNORE');
-  
-  // Replace AUTOINCREMENT with AUTO_INCREMENT
-  processed = processed.replace(/AUTOINCREMENT/gi, 'AUTO_INCREMENT');
-  
+
+  if (dialect === 'mysql') {
+    // Replace INSERT OR IGNORE with INSERT IGNORE
+    processed = processed.replace(/INSERT\s+OR\s+IGNORE/gi, 'INSERT IGNORE');
+    // Replace AUTOINCREMENT with AUTO_INCREMENT
+    processed = processed.replace(/AUTOINCREMENT/gi, 'AUTO_INCREMENT');
+  } else if (dialect === 'postgresql') {
+    // Replace AUTOINCREMENT with serial / identity in PG
+    processed = processed.replace(/INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT/gi, 'SERIAL PRIMARY KEY');
+    
+    // Replace TEXT check-level constraints of SQLite
+    processed = processed.replace(/TEXT\s+CHECK\s*\(([^)]+)\)\s*NOT\s*NULL\s*DEFAULT\s*([^,;)]+)/gi, (m, checkVal, defVal) => {
+      return `VARCHAR(255) DEFAULT ${defVal} CHECK (${checkVal})`;
+    });
+
+    processed = processed.replace(/TEXT\s+CHECK\s*\(([^)]+)\)/gi, 'VARCHAR(255) CHECK ($1)');
+
+    // Replace BOOLEAN integers DEFAULT 0 / 1 to FALSE / TRUE
+    processed = processed.replace(/BOOLEAN\s+DEFAULT\s+0/gi, 'BOOLEAN DEFAULT FALSE');
+    processed = processed.replace(/BOOLEAN\s+DEFAULT\s+1/gi, 'BOOLEAN DEFAULT TRUE');
+
+    // Replace DATETIME with TIMESTAMP
+    processed = processed.replace(/DATETIME/gi, 'TIMESTAMP');
+
+    // Replace INSERT OR IGNORE with ON CONFLICT DO NOTHING
+    processed = processed.replace(/INSERT\s+OR\s+IGNORE\s+INTO\s+Routes\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/gi, (match, cols, vals) => {
+      return `INSERT INTO Routes (${cols}) VALUES (${vals}) ON CONFLICT (origin_station_id, destination_station_id) DO NOTHING`;
+    });
+
+    processed = processed.replace(/INSERT\s+OR\s+IGNORE\s+INTO\s+Holidays\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/gi, (match, cols, vals) => {
+      return `INSERT INTO Holidays (${cols}) VALUES (${vals}) ON CONFLICT (name, date) DO NOTHING`;
+    });
+
+    processed = processed.replace(/INSERT\s+OR\s+IGNORE\s+INTO\s+Stations\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/gi, (match, cols, vals) => {
+      return `INSERT INTO Stations (${cols}) VALUES (${vals}) ON CONFLICT (name) DO NOTHING`;
+    });
+
+    // Replace postgres placeholders: ? -> $1, $2, $3, etc.
+    let paramIndex = 1;
+    processed = processed.replace(/\?/g, () => `$${paramIndex++}`);
+  }
+
   return processed;
 }
 
 export async function getDB(): Promise<AppDatabase> {
   if (dbInstance) return dbInstance;
 
+  // 1. Check for Supabase / PostgreSQL Credentials
+  const usePostgres = !!(
+    process.env.SUPABASE_DB_URL ||
+    process.env.DATABASE_URL ||
+    process.env.PGHOST ||
+    process.env.POSTGRES_HOST
+  );
+
+  if (usePostgres) {
+    try {
+      console.log('Connecting to Supabase PostgreSQL Database...');
+      const connectionString = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
+
+      let pool: pg.Pool;
+      if (connectionString) {
+        pool = new pg.Pool({
+          connectionString,
+          ssl: connectionString.includes('supabase') || connectionString.includes('render') || connectionString.includes('neon') ? { rejectUnauthorized: false } : undefined
+        });
+      } else {
+        const host = process.env.PGHOST || process.env.POSTGRES_HOST || '127.0.0.1';
+        const user = process.env.PGUSER || process.env.POSTGRES_USER || 'postgres';
+        const password = process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD || '';
+        const database = process.env.PGDATABASE || process.env.POSTGRES_DB || 'postgres';
+        const port = parseInt(process.env.PGPORT || process.env.POSTGRES_PORT || '5432', 10);
+        pool = new pg.Pool({
+          host,
+          user,
+          password,
+          database,
+          port,
+          ssl: host.includes('supabase') ? { rejectUnauthorized: false } : undefined
+        });
+      }
+
+      await pool.query('SELECT NOW()');
+      console.log('Successfully connected to Supabase PostgreSQL database.');
+
+      const postgresAdapter: AppDatabase = {
+        async get(sql: string, params: any[] = []): Promise<any> {
+          const processedSql = preprocessQuery(sql, 'postgresql');
+          const res = await pool.query(processedSql, params);
+          return res.rows && res.rows.length > 0 ? res.rows[0] : null;
+        },
+        async all(sql: string, params: any[] = []): Promise<any[]> {
+          const processedSql = preprocessQuery(sql, 'postgresql');
+          const res = await pool.query(processedSql, params);
+          return Array.isArray(res.rows) ? res.rows : [];
+        },
+        async run(sql: string, params: any[] = []): Promise<{ lastID?: number; changes?: number }> {
+          const processedSql = preprocessQuery(sql, 'postgresql');
+          const res = await pool.query(processedSql, params);
+          const lastRow = res.rows && res.rows.length > 0 ? res.rows[0] : null;
+          return {
+            lastID: lastRow ? lastRow.id : undefined,
+            changes: res.rowCount !== null ? res.rowCount : undefined
+          };
+        },
+        async exec(sql: string): Promise<void> {
+          const statements = sql
+            .split(';')
+            .map(s => s.trim())
+            .filter(s => s.length > 0);
+          for (const rawStatement of statements) {
+            const processedStatement = preprocessQuery(rawStatement, 'postgresql');
+            await pool.query(processedStatement);
+          }
+        }
+      };
+
+      await initializeSchema(postgresAdapter);
+      dbInstance = postgresAdapter;
+      return dbInstance;
+    } catch (pgError) {
+      console.warn('Supabase PostgreSQL connection failed. Falling back...', pgError);
+    }
+  }
+
+  // 2. Fallback to MySQL Database
   const useMySQL = !!(
     process.env.DB_HOST ||
     process.env.MYSQL_HOST ||
@@ -58,17 +172,17 @@ export async function getDB(): Promise<AppDatabase> {
 
       const mysqlAdapter: AppDatabase = {
         async get(sql: string, params: any[] = []): Promise<any> {
-          const processedSql = preprocessQuery(sql, true);
+          const processedSql = preprocessQuery(sql, 'mysql');
           const [rows]: [any, any] = await connection.execute(processedSql, params);
           return rows && rows.length > 0 ? rows[0] : null;
         },
         async all(sql: string, params: any[] = []): Promise<any[]> {
-          const processedSql = preprocessQuery(sql, true);
+          const processedSql = preprocessQuery(sql, 'mysql');
           const [rows]: [any, any] = await connection.execute(processedSql, params);
           return Array.isArray(rows) ? rows : [];
         },
         async run(sql: string, params: any[] = []): Promise<{ lastID?: number; changes?: number }> {
-          const processedSql = preprocessQuery(sql, true);
+          const processedSql = preprocessQuery(sql, 'mysql');
           const [result]: [any, any] = await connection.execute(processedSql, params);
           return {
             lastID: result ? result.insertId : undefined,
@@ -76,22 +190,18 @@ export async function getDB(): Promise<AppDatabase> {
           };
         },
         async exec(sql: string): Promise<void> {
-          // MySQL execute doesn't support multiple statement query sets easily, 
-          // so we split by semicolon and execute them sequentially
           const statements = sql
             .split(';')
             .map(s => s.trim())
             .filter(s => s.length > 0);
           for (const rawStatement of statements) {
-            const processedStatement = preprocessQuery(rawStatement, true);
+            const processedStatement = preprocessQuery(rawStatement, 'mysql');
             await connection.query(processedStatement);
           }
         }
       };
 
-      // Initialize the schema if running for the first time
       await initializeSchema(mysqlAdapter);
-
       dbInstance = mysqlAdapter;
       return dbInstance;
     } catch (mysqlError) {
@@ -99,7 +209,7 @@ export async function getDB(): Promise<AppDatabase> {
     }
   }
 
-  // Fallback to local SQLite database
+  // 3. Fallback to local SQLite Database
   console.log('Initializing local SQLite database (SQLITE3_LOADED_SUCCESSFULLY)...');
   const dbPath = path.resolve(process.cwd(), 'ets_system.db');
   
@@ -113,15 +223,15 @@ export async function getDB(): Promise<AppDatabase> {
 
   const sqliteAdapter: AppDatabase = {
     async get(sql: string, params: any[] = []): Promise<any> {
-      const processedSql = preprocessQuery(sql, false);
+      const processedSql = preprocessQuery(sql, 'sqlite');
       return await sqliteDB.get(processedSql, params);
     },
     async all(sql: string, params: any[] = []): Promise<any[]> {
-      const processedSql = preprocessQuery(sql, false);
+      const processedSql = preprocessQuery(sql, 'sqlite');
       return await sqliteDB.all(processedSql, params);
     },
     async run(sql: string, params: any[] = []): Promise<{ lastID?: number; changes?: number }> {
-      const processedSql = preprocessQuery(sql, false);
+      const processedSql = preprocessQuery(sql, 'sqlite');
       const result = await sqliteDB.run(processedSql, params);
       return {
         lastID: result.lastID,
@@ -129,14 +239,12 @@ export async function getDB(): Promise<AppDatabase> {
       };
     },
     async exec(sql: string): Promise<void> {
-      const processedSql = preprocessQuery(sql, false);
+      const processedSql = preprocessQuery(sql, 'sqlite');
       await sqliteDB.exec(processedSql);
     }
   };
 
-  // Initialize SQLite Schema
   await initializeSchema(sqliteAdapter);
-
   dbInstance = sqliteAdapter;
   return dbInstance;
 }
@@ -159,9 +267,17 @@ async function initializeSchema(db: AppDatabase) {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS Stations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL UNIQUE
+      name TEXT NOT NULL UNIQUE,
+      state TEXT NOT NULL DEFAULT 'Other'
     );
   `);
+
+  // Migrate state column to SQLite/MySQL if table already existed without it
+  try {
+    await db.exec("ALTER TABLE Stations ADD COLUMN state TEXT NOT NULL DEFAULT 'Other';");
+  } catch (err) {
+    // Column already exists, safe to ignore
+  }
 
   // CREATE Routes Table
   await db.exec(`
@@ -187,7 +303,7 @@ async function initializeSchema(db: AppDatabase) {
     );
   `);
 
-  // Index creation split up to prevent individual execution lock issues
+  // Index creation
   try {
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_origin_dest ON Ridership (origin, destination);`);
   } catch (e) {}
@@ -271,42 +387,100 @@ async function initializeSchema(db: AppDatabase) {
     );
   `);
 
-  // --- SEED STATIONS ---
+  // --- SEED STATIONS by state matching online.ktmb.com.my ---
   const stationCount = await db.get('SELECT COUNT(*) as count FROM Stations');
-  if (stationCount && stationCount.count === 0) {
-    const etsStations = [
-      'Padang Besar', 'Arau', 'Alor Setar', 'Sungai Petani', 'Butterworth',
-      'Bukit Mertajam', 'Taiping', 'Kuala Kangsar', 'Ipoh', 'Batu Gajah',
-      'Kampar', 'Tapah Road', 'Sungkai', 'Slim River', 'Tanjung Malim',
-      'Rawang', 'Kuala Lumpur', 'KL Sentral', 'Kajang', 'Bandar Tasik Selatan',
-      'Seremban', 'Tampin', 'Batang Melaka', 'Gemas'
+  if (stationCount && (stationCount.count === 0 || stationCount.count === '0')) {
+    const etsStationsWithStates = [
+      // Perlis
+      { name: 'Padang Besar', state: 'Perlis' },
+      { name: 'Arau', state: 'Perlis' },
+      
+      // Kedah
+      { name: 'Anak Bukit', state: 'Kedah' },
+      { name: 'Alor Setar', state: 'Kedah' },
+      { name: 'Sungai Petani', state: 'Kedah' },
+      
+      // Penang (Pulau Pinang)
+      { name: 'Butterworth', state: 'Penang' },
+      { name: 'Bukit Mertajam', state: 'Penang' },
+      { name: 'Nibong Tebal', state: 'Penang' },
+      
+      // Perak
+      { name: 'Parit Buntar', state: 'Perak' },
+      { name: 'Bagan Serai', state: 'Perak' },
+      { name: 'Kamunting', state: 'Perak' },
+      { name: 'Taiping', state: 'Perak' },
+      { name: 'Kuala Kangsar', state: 'Perak' },
+      { name: 'Ipoh', state: 'Perak' },
+      { name: 'Batu Gajah', state: 'Perak' },
+      { name: 'Kampar', state: 'Perak' },
+      { name: 'Tapah Road', state: 'Perak' },
+      { name: 'Sungkai', state: 'Perak' },
+      { name: 'Slim River', state: 'Perak' },
+      { name: 'Tanjung Malim', state: 'Perak' },
+      
+      // Selangor
+      { name: 'Kuala Kubu Bharu', state: 'Selangor' },
+      { name: 'Rawang', state: 'Selangor' },
+      { name: 'Kajang', state: 'Selangor' },
+      
+      // Kuala Lumpur
+      { name: 'Kepong Sentral', state: 'Kuala Lumpur' },
+      { name: 'Kuala Lumpur', state: 'Kuala Lumpur' },
+      { name: 'KL Sentral', state: 'Kuala Lumpur' },
+      { name: 'Bandar Tasik Selatan', state: 'Kuala Lumpur' },
+      
+      // Negeri Sembilan
+      { name: 'Nilai', state: 'Negeri Sembilan' },
+      { name: 'Seremban', state: 'Negeri Sembilan' },
+      { name: 'Tampin', state: 'Negeri Sembilan' },
+      { name: 'Gemas', state: 'Negeri Sembilan' },
+      
+      // Melaka
+      { name: 'Batang Melaka', state: 'Melaka' },
+      
+      // Johor
+      { name: 'Segamat', state: 'Johor' },
+      { name: 'Kluang', state: 'Johor' },
+      { name: 'Kempas Baru', state: 'Johor' },
+      { name: 'JB Sentral', state: 'Johor' }
     ];
-    for (const station of etsStations) {
-      await db.run('INSERT INTO Stations (name) VALUES (?)', [station]);
+
+    for (const station of etsStationsWithStates) {
+      await db.run('INSERT INTO Stations (name, state) VALUES (?, ?)', [station.name, station.state]);
     }
 
-    // --- SEED ROUTES ---
-    // Stations ID's from 1 to 24
-    for (let i = 1; i < etsStations.length; i++) {
+    // --- SEED ROUTES BETWEEN ADJACENT STATIONS ---
+    // Stations ID's from 1 to 36
+    for (let i = 1; i < etsStationsWithStates.length; i++) {
       await db.run('INSERT OR IGNORE INTO Routes (origin_station_id, destination_station_id) VALUES (?, ?)', [i, i + 1]);
       await db.run('INSERT OR IGNORE INTO Routes (origin_station_id, destination_station_id) VALUES (?, ?)', [i + 1, i]);
     }
-    const butterworthId = etsStations.indexOf('Butterworth') + 1;
-    const klSentralId = etsStations.indexOf('KL Sentral') + 1;
-    const padangBesarId = etsStations.indexOf('Padang Besar') + 1;
-    const ipohId = etsStations.indexOf('Ipoh') + 1;
+    
+    // Add additional popular direct route links for the simulator
+    const findId = (name: string) => etsStationsWithStates.findIndex(s => s.name === name) + 1;
+    const butterworthId = findId('Butterworth');
+    const klSentralId = findId('KL Sentral');
+    const padangBesarId = findId('Padang Besar');
+    const ipohId = findId('Ipoh');
 
-    await db.run('INSERT OR IGNORE INTO Routes (origin_station_id, destination_station_id) VALUES (?, ?)', [butterworthId, klSentralId]);
-    await db.run('INSERT OR IGNORE INTO Routes (origin_station_id, destination_station_id) VALUES (?, ?)', [klSentralId, butterworthId]);
-    await db.run('INSERT OR IGNORE INTO Routes (origin_station_id, destination_station_id) VALUES (?, ?)', [padangBesarId, klSentralId]);
-    await db.run('INSERT OR IGNORE INTO Routes (origin_station_id, destination_station_id) VALUES (?, ?)', [klSentralId, padangBesarId]);
-    await db.run('INSERT OR IGNORE INTO Routes (origin_station_id, destination_station_id) VALUES (?, ?)', [ipohId, klSentralId]);
-    await db.run('INSERT OR IGNORE INTO Routes (origin_station_id, destination_station_id) VALUES (?, ?)', [klSentralId, ipohId]);
+    if (butterworthId && klSentralId) {
+      await db.run('INSERT OR IGNORE INTO Routes (origin_station_id, destination_station_id) VALUES (?, ?)', [butterworthId, klSentralId]);
+      await db.run('INSERT OR IGNORE INTO Routes (origin_station_id, destination_station_id) VALUES (?, ?)', [klSentralId, butterworthId]);
+    }
+    if (padangBesarId && klSentralId) {
+      await db.run('INSERT OR IGNORE INTO Routes (origin_station_id, destination_station_id) VALUES (?, ?)', [padangBesarId, klSentralId]);
+      await db.run('INSERT OR IGNORE INTO Routes (origin_station_id, destination_station_id) VALUES (?, ?)', [klSentralId, padangBesarId]);
+    }
+    if (ipohId && klSentralId) {
+      await db.run('INSERT OR IGNORE INTO Routes (origin_station_id, destination_station_id) VALUES (?, ?)', [ipohId, klSentralId]);
+      await db.run('INSERT OR IGNORE INTO Routes (origin_station_id, destination_station_id) VALUES (?, ?)', [klSentralId, ipohId]);
+    }
   }
 
   // --- SEED HOLIDAYS ---
   const holidayCount = await db.get('SELECT COUNT(*) as count FROM Holidays');
-  if (holidayCount && holidayCount.count === 0) {
+  if (holidayCount && (holidayCount.count === 0 || holidayCount.count === '0')) {
     const malaysiaHolidays = [
       { name: "New Year's Day", date: '2026-01-01' },
       { name: 'Chinese New Year', date: '2026-02-17' },
@@ -330,13 +504,14 @@ async function initializeSchema(db: AppDatabase) {
     }
   }
 
-  // --- SEED INITIAL USER ---
+  // --- SEED INITIAL USER WITH HASHED PASSWORDS ---
   const userCount = await db.get('SELECT COUNT(*) as count FROM Users');
-  if (userCount && userCount.count === 0) {
+  if (userCount && (userCount.count === 0 || userCount.count === '0')) {
     const bcrypt = await import('bcryptjs');
-    const adminHash = await bcrypt.hash('admin123', 10);
-    const operatorHash = await bcrypt.hash('operator123', 10);
-    const passengerHash = await bcrypt.hash('passenger123', 10);
+    // Strong complex default passwords matching encryption hardness
+    const adminHash = await bcrypt.hash('Admin@12345!', 10);
+    const operatorHash = await bcrypt.hash('Operator@12345!', 10);
+    const passengerHash = await bcrypt.hash('Passenger@12345!', 10);
 
     await db.run('INSERT INTO Users (full_name, username, password_hash, role, status) VALUES (?, ?, ?, ?, ?)', [
       'System Admin', 'admin', adminHash, 'admin', 'active'
@@ -351,7 +526,7 @@ async function initializeSchema(db: AppDatabase) {
 
   // --- SEED SAMPLE RIDERSHIP DATA ---
   const ridershipCount = await db.get('SELECT COUNT(*) as count FROM Ridership');
-  if (ridershipCount && ridershipCount.count === 0) {
+  if (ridershipCount && (ridershipCount.count === 0 || ridershipCount.count === '0')) {
     const list = [
       { date: '2026-04-01', time: '08:00:00', origin: 'Butterworth', destination: 'KL Sentral', count: 320 },
       { date: '2026-04-01', time: '12:00:00', origin: 'Butterworth', destination: 'KL Sentral', count: 210 },

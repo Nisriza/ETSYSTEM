@@ -116,7 +116,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
             <Train className="h-7 w-7 text-[#4f46e5]" id="brand-train-icon" />
           </div>
           <h1 className="font-display text-[22px] font-extrabold tracking-tight text-[#111827]" id="app-title">ETS RiderPredict</h1>
-          <p className="text-[#64748b] text-xs mt-1.5 font-medium" id="app-subtitle">Ridership Prediction & Travel Analytics System</p>
+          <p className="text-[#64748b] text-xs mt-1.5 font-medium" id="app-subtitle">Public Transport Ridership Prediction & Travel Planning System</p>
         </div>
 
         {/* Form area */}
@@ -246,19 +246,6 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
               {isRegister ? 'Already have an account? Sign In' : "Don't have an account? Register here"}
             </button>
           </div>
-
-          {!isRegister && (
-            <div className="mt-4 p-3 bg-[#f1f5f9] border border-[#e2e8f0] text-[#1e293b] rounded-xl text-center text-[10.5px] leading-relaxed" id="auth-hints-box">
-              <span className="font-bold flex items-center justify-center gap-1 text-[#4f46e5] mb-1">
-                <Sparkles className="h-3 w-3" /> Quick Access Accounts
-              </span>
-              <div className="grid grid-cols-1 gap-1 text-[10px] text-[#64748b] text-left max-w-xs mx-auto font-medium">
-                <div>• <b className="text-[#1e293b]">Passenger:</b> passenger | passenger123</div>
-                <div>• <b className="text-[#1e293b]">Operator:</b> operator | operator123</div>
-                <div>• <b className="text-[#1e293b]">Admin:</b> admin | admin123</div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

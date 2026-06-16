@@ -91,7 +91,7 @@ export default function App() {
                 <span className="text-[10px] font-bold bg-[#e0e7ff] text-[#4f46e5] px-1.5 py-0.5 rounded-full uppercase tracking-wider">PRO</span>
               </h1>
               <p className="text-[10.5px] text-[#64748b] font-medium mt-1">
-                Ridership Prediction and Travel Decision Support System
+                Web-based Public Transport Ridership Prediction and Travel Planning System
               </p>
             </div>
           </div>
