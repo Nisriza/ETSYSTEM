@@ -81,7 +81,8 @@ export async function getDB(): Promise<AppDatabase> {
       if (connectionString) {
         pool = new pg.Pool({
           connectionString,
-          ssl: connectionString.includes('supabase') || connectionString.includes('render') || connectionString.includes('neon') ? { rejectUnauthorized: false } : undefined
+          ssl: connectionString.includes('supabase') || connectionString.includes('render') || connectionString.includes('neon') ? { rejectUnauthorized: false } : undefined,
+          connectionTimeoutMillis: 3000 // fail fast in 3 seconds to avoid blocking the server startup
         });
       } else {
         const host = process.env.PGHOST || process.env.POSTGRES_HOST || '127.0.0.1';
@@ -95,7 +96,8 @@ export async function getDB(): Promise<AppDatabase> {
           password,
           database,
           port,
-          ssl: host.includes('supabase') ? { rejectUnauthorized: false } : undefined
+          ssl: host.includes('supabase') ? { rejectUnauthorized: false } : undefined,
+          connectionTimeoutMillis: 3000 // fail fast in 3 seconds
         });
       }
 
@@ -165,7 +167,8 @@ export async function getDB(): Promise<AppDatabase> {
         user,
         password,
         database,
-        port
+        port,
+        connectTimeout: 3000 // fail fast in 3 seconds to avoid blocking the server startup
       });
 
       console.log('Successfully connected to MySQL database:', database);
