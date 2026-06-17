@@ -81,7 +81,7 @@ export async function getDB(): Promise<AppDatabase> {
       if (connectionString) {
         pool = new pg.Pool({
           connectionString,
-          ssl: connectionString.includes('supabase') || connectionString.includes('render') || connectionString.includes('neon') ? { rejectUnauthorized: false } : undefined,
+          ssl: { rejectUnauthorized: false },
           connectionTimeoutMillis: 3000 // fail fast in 3 seconds to avoid blocking the server startup
         });
       } else {
