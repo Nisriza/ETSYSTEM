@@ -1,5 +1,4 @@
 import 'dotenv/config';
-console.log('ENV CHECK:', process.env.SUPABASE_DB_URL);
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
@@ -8,7 +7,7 @@ import { randomBytes } from 'crypto';
 import { getDB } from './src/db/sqlite.ts';
 import { predictRidership, retrainModel, getModelMetrics } from './src/lib/predictor.ts';
 import { GoogleGenAI } from '@google/genai';
-
+console.log('ENV CHECK:', process.env.SUPABASE_DB_URL);
 console.log('SUPABASE URL:', process.env.SUPABASE_DB_URL);
 
 const app = express();
