@@ -1,4 +1,5 @@
 import 'dotenv/config';
+console.log('ENV CHECK:', process.env.SUPABASE_DB_URL);
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
