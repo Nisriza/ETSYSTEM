@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 import { getDB } from './src/db/sqlite.ts';
 import { predictRidership, retrainModel, getModelMetrics } from './src/lib/predictor.ts';
 import { GoogleGenAI } from '@google/genai';
@@ -119,7 +120,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     // Generate Session Token
-    const sessionToken = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+    const sessionToken = randomBytes(32).toString('hex');
     const sessionUser = {
       id: user.id,
       full_name: user.full_name,
@@ -1118,7 +1119,7 @@ app.post('/api/admin/holidays/google-sync', authenticateToken, async (req: any, 
     const currentYear = new Date().getFullYear();
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
+      model: 'gemini-2.0-flash',
       contents: `Provide a structured JSON list of official public holidays in Malaysia for the years ${currentYear} and ${currentYear + 1}. 
 Return ONLY a valid JSON array of objects, with no markdown block qualifiers.
 Each object must contain keys "name" (string, e.g. "Chinese New Year") and "date" (string, ISO format "YYYY-MM-DD"). All returned dates must be valid calendar dates.`,
