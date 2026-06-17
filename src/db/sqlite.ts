@@ -96,7 +96,7 @@ export async function getDB(): Promise<AppDatabase> {
           password,
           database,
           port,
-          ssl: host.includes('supabase') ? { rejectUnauthorized: false } : undefined,
+          ssl: { rejectUnauthorized: false },
           connectionTimeoutMillis: 3000 // fail fast in 3 seconds
         });
       }
