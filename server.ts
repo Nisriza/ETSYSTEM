@@ -7,6 +7,8 @@ import { getDB } from './src/db/sqlite.ts';
 import { predictRidership, retrainModel, getModelMetrics } from './src/lib/predictor.ts';
 import { GoogleGenAI } from '@google/genai';
 
+console.log('SUPABASE URL:', process.env.SUPABASE_DB_URL);
+
 const app = express();
 const PORT = 3000;
 
