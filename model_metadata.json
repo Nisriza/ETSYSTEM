@@ -1,0 +1,1 @@
+{"mae": 3.39, "rmse": 8.93, "r2": 0.78, "trainedAt": "2026-10-10T01:55:37.333851", "totalRecords": 2806323, "processingTime": 1112.0, "notes": "Random Forest trained on 2806323 records from 7 CSV file(s) (2020-2026)."}
