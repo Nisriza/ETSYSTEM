@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User } from './types.ts';
 import LoginView from './components/LoginView.tsx';
+<<<<<<< HEAD
 import LoginViewBM from './components/LoginViewBM.tsx';
 import PassengerView from './components/PassengerView.tsx';
 import PassengerViewBM from './components/PassengerViewBM.tsx';
@@ -23,6 +24,20 @@ function AppContent() {
   const isBM = lang === 'bm';
 
   useEffect(() => {
+=======
+import PassengerView from './components/PassengerView.tsx';
+import OperatorView from './components/OperatorView.tsx';
+import AdminView from './components/AdminView.tsx';
+import { Train, LogOut, Loader2, Sparkles, User as UserIcon } from 'lucide-react';
+
+export default function App() {
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [initializing, setInitializing] = useState(true);
+
+  useEffect(() => {
+    // Attempt session restore
+>>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
     const storedToken = localStorage.getItem('user_token');
     if (storedToken) {
       verifySession(storedToken);
@@ -31,6 +46,7 @@ function AppContent() {
     }
   }, []);
 
+<<<<<<< HEAD
   useEffect(() => {
     if (!user || !token) { setTutorialOpen(false); return; }
     const isGuest = user.role === 'guest';
@@ -55,11 +71,17 @@ function AppContent() {
     }
   };
 
+=======
+>>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
   const verifySession = async (sessionToken: string) => {
     try {
       const res = await fetch('/api/auth/me', {
         headers: { 'Authorization': `Bearer ${sessionToken}` }
       });
+<<<<<<< HEAD
+=======
+
+>>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
@@ -100,17 +122,29 @@ function AppContent() {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center font-sans" id="app-init">
         <Loader2 className="w-10 h-10 animate-spin text-indigo-600" id="spinner" />
+<<<<<<< HEAD
         <p className="text-xs text-slate-500 font-bold mt-3" id="loading-sub">{isBM ? 'Memuatkan...' : 'Loading...'}</p>
+=======
+        <p className="text-xs text-slate-500 font-bold mt-3" id="loading-sub">Synchronizing secure terminal databases...</p>
+>>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
       </div>
     );
   }
 
   if (!user || !token) {
+<<<<<<< HEAD
     return isBM ? <LoginViewBM onLoginSuccess={handleLoginSuccess} /> : <LoginView onLoginSuccess={handleLoginSuccess} />;
+=======
+    return <LoginView onLoginSuccess={handleLoginSuccess} />;
+>>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
   }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans" id="app-main">
+<<<<<<< HEAD
+=======
+      {/* Top Main Application Banner Header in Sleek Interface Theme */}
+>>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
       <header className="bg-white border-b border-[#e2e8f0] text-[#1e293b]" id="main-app-header">
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-3.5 flex items-center justify-between" id="header-wrapper">
           <div className="flex items-center gap-3">
@@ -119,16 +153,25 @@ function AppContent() {
             </div>
             <div>
               <h1 className="font-display font-extrabold text-[#111827] text-base md:text-lg tracking-tight leading-none flex items-center gap-1.5">
+<<<<<<< HEAD
                 {'ETS RiderPredict'}
                 <span className="text-[10px] font-bold bg-[#e0e7ff] text-[#4f46e5] px-1.5 py-0.5 rounded-full uppercase tracking-wider">{isBM ? 'PRO' : 'PRO'}</span>
               </h1>
               <p className="text-[10.5px] text-[#64748b] font-medium mt-1">
                 {isBM ? 'Sistem Ramalan Ridership Pengangkutan Awam & Perancangan Perjalanan' : 'Public Transport Ridership Prediction & Travel Planning System'}
+=======
+                ETS RiderPredict
+                <span className="text-[10px] font-bold bg-[#e0e7ff] text-[#4f46e5] px-1.5 py-0.5 rounded-full uppercase tracking-wider">PRO</span>
+              </h1>
+              <p className="text-[10.5px] text-[#64748b] font-medium mt-1">
+                Web-based Public Transport Ridership Prediction and Travel Planning System
+>>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3" id="header-status">
+<<<<<<< HEAD
             <InstallAppButton />
             <button
               id="btn-help-tutorial"
@@ -160,6 +203,12 @@ function AppContent() {
                 <span className="text-[9px] text-[#4f46e5] font-extrabold uppercase tracking-wide leading-none">
                   {user.role === 'guest' ? (isBM ? 'Akses Terhad' : 'Limited Access') : `${user.role} ${isBM ? 'Keistimewaan' : 'Privilege'}`}
                 </span>
+=======
+            <div className="hidden sm:flex items-center gap-2.5 bg-[#f1f5f9] px-3.5 py-1.5 rounded-xl border border-[#e2e8f0] text-right">
+              <div>
+                <span className="text-xs font-bold block text-[#1e293b]">{user.full_name}</span>
+                <span className="text-[9px] text-[#4f46e5] font-extrabold uppercase tracking-wide leading-none">{user.role} Privilege</span>
+>>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
               </div>
               <span className="p-1 bg-white border border-[#e2e8f0] rounded-lg text-[#64748b]">
                 <UserIcon className="h-3.5 w-3.5" />
@@ -172,12 +221,17 @@ function AppContent() {
               className="p-2 py-1.5 sleek-btn-secondary border-red-100 hover:bg-red-50 hover:border-red-200 text-red-650 text-red-600 text-xs font-bold flex items-center gap-1 cursor-pointer"
             >
               <LogOut className="h-3.5 w-3.5" />
+<<<<<<< HEAD
               {isBM ? 'Log Keluar' : 'Logout'}
+=======
+              Logout
+>>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
             </button>
           </div>
         </div>
       </header>
 
+<<<<<<< HEAD
       <main className="flex-1" id="main-content">
         {user.role === 'passenger' && (isBM ? <PassengerViewBM user={user} token={token} /> : <PassengerView user={user} token={token} />)}
         {user.role === 'guest' && (isBM ? <PassengerViewBM user={user} token={token} /> : <PassengerView user={user} token={token} />)}
@@ -204,3 +258,24 @@ function AppContent() {
 export default function App() {
   return <AppContent />;
 }
+=======
+      {/* Main Role router page */}
+      <main className="flex-1" id="main-content">
+        {user.role === 'passenger' && <PassengerView user={user} token={token} />}
+        {user.role === 'operator' && <OperatorView user={user} token={token} />}
+        {user.role === 'admin' && <AdminView user={user} token={token} />}
+      </main>
+
+      {/* Footer credits */}
+      <footer className="bg-white border-t border-[#e2e8f0] py-5 text-center text-[10.5px] font-medium text-[#64748b] mt-auto" id="app-footer">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <span>© 2026 Malaysia Electric Train Service (ETS). All rights reserved.</span>
+          <span className="flex items-center gap-1 text-[#64748b]">
+            System Stamped: <span className="bg-[#f1f5f9] text-[#1e293b] px-1.5 py-0.5 rounded font-mono border border-[#e2e8f0]">SQLite V3.4</span>
+          </span>
+        </div>
+      </footer>
+    </div>
+  );
+}
+>>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413

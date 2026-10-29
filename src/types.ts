@@ -2,17 +2,25 @@ export interface User {
   id: number;
   full_name: string;
   username: string;
+<<<<<<< HEAD
   role: 'passenger' | 'operator' | 'admin' | 'guest';
   status: string;
   language?: string;
   tutorial_completed?: boolean;
   tutorial_completed_at?: string;
+=======
+  role: 'passenger' | 'operator' | 'admin';
+  status: string;
+>>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
 }
 
 export interface Station {
   id: number;
   name: string;
+<<<<<<< HEAD
   state?: string;
+=======
+>>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
 }
 
 export interface SavedTrip {
@@ -36,7 +44,11 @@ export interface Feedback {
   destination: string;
   travel_date: string;
   crowd_level: 'Low' | 'Medium' | 'High' | 'Very High';
+<<<<<<< HEAD
   comfort_rating: number;
+=======
+  comfort_rating: number; // 1-5
+>>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
   delay_reported: boolean;
   delay_minutes: number;
   comment: string;
@@ -50,6 +62,21 @@ export interface Holiday {
   country: string;
 }
 
+<<<<<<< HEAD
+=======
+export interface Recommendation {
+  holidayId: number;
+  holidayName: string;
+  holidayDate: string;
+  origin: string;
+  destination: string;
+  predicted_ridership: number;
+  demandLevel: 'Low' | 'Medium' | 'High' | 'Very High';
+  recommendation: string;
+  recommendedDate: string | null;
+}
+
+>>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
 export interface ReportItem {
   id: number;
   operator_id: number;
@@ -57,6 +84,7 @@ export interface ReportItem {
   month: number;
   year: number;
   generated_at: string;
+<<<<<<< HEAD
   report_data: string;
 }
 
@@ -106,4 +134,7 @@ export interface OperatorRecord {
   username: string;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
+=======
+  report_data: string; // JSON String
+>>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
 }
