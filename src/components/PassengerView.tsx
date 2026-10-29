@@ -1,17 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { User, Station, SavedTrip, Feedback, Holiday, Recommendation } from '../types.ts';
-<<<<<<< HEAD
 import { t } from '../lib/i18n.tsx';
 import {
   Train, Search, Calendar, Clock, Bookmark, MessageSquare, MapPin, 
    Trash2, Edit, CheckCircle2, AlertTriangle, AlertCircle, Sparkles, Star,
   ArrowRight, User as UserIcon, LogOut, ChevronRight, BookmarkPlus, HelpCircle
-=======
-import {
-  Train, Search, Calendar, Clock, Bookmark, MessageSquare, MapPin, 
-  Trash2, Edit, CheckCircle2, AlertTriangle, AlertCircle, Sparkles, Star,
-  Check, ArrowRight, User as UserIcon, LogOut, ChevronRight, BookmarkPlus, HelpCircle
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
 } from 'lucide-react';
 
 interface PassengerViewProps {
@@ -22,10 +15,7 @@ interface PassengerViewProps {
 type TabType = 'search' | 'trips' | 'feedback' | 'recommendations' | 'profile';
 
 export default function PassengerView({ user, token }: PassengerViewProps) {
-<<<<<<< HEAD
   const isGuest = user.role === 'guest';
-=======
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
   const [activeTab, setActiveTab] = useState<TabType>('search');
   const [stations, setStations] = useState<Station[]>([]);
   
@@ -50,12 +40,9 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
   const [changingPass, setChangingPass] = useState(false);
   const [passError, setPassError] = useState<string | null>(null);
   const [passSuccess, setPassSuccess] = useState<string | null>(null);
-<<<<<<< HEAD
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deletingAccount, setDeletingAccount] = useState(false);
-=======
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
 
   // Note Modal States
   const [showNoteModal, setShowNoteModal] = useState(false);
@@ -65,13 +52,6 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
 
   // Trips States
   const [savedTrips, setSavedTrips] = useState<SavedTrip[]>([]);
-<<<<<<< HEAD
-=======
-  const [editingTripId, setEditingTripId] = useState<number | null>(null);
-  const [editDate, setEditDate] = useState('');
-  const [editTime, setEditTime] = useState('');
-  const [editNote, setEditNote] = useState('');
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
 
   // Feedback States
   const [feedbackHistory, setFeedbackHistory] = useState<Feedback[]>([]);
@@ -85,7 +65,6 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
   const [fbComment, setFbComment] = useState('');
   const [submittingFb, setSubmittingFb] = useState(false);
   const [editingFbId, setEditingFbId] = useState<number | null>(null);
-<<<<<<< HEAD
   const [connectedDestinations, setConnectedDestinations] = useState<Station[]>([]);
 
   // Holiday State
@@ -102,20 +81,12 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
       if (res.ok) setPopularRoutes(await res.json());
     } catch (e) { console.error(e); }
   };
-=======
-
-  // Holiday State
-  const [holidays, setHolidays] = useState<Holiday[]>([]);
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-  const [loadingRecs, setLoadingRecs] = useState(false);
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
 
   useEffect(() => {
     fetchStations();
     fetchSavedTrips();
     fetchFeedbackHistory();
     fetchHolidaysAndRecs();
-<<<<<<< HEAD
     fetchUpcomingHolidays();
     fetchPopularRoutes();
   }, []);
@@ -144,10 +115,6 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
     }
   };
 
-=======
-  }, []);
-
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPassError(null);
@@ -208,10 +175,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
   };
 
   const fetchSavedTrips = async () => {
-<<<<<<< HEAD
     if (isGuest) return;
-=======
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
     try {
       const res = await fetch('/api/saved-trips', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -223,10 +187,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
   };
 
   const fetchFeedbackHistory = async () => {
-<<<<<<< HEAD
     if (isGuest) return;
-=======
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
     try {
       const res = await fetch('/api/feedback/history', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -240,11 +201,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
   const fetchHolidaysAndRecs = async () => {
     setLoadingRecs(true);
     try {
-<<<<<<< HEAD
       const resHolidays = await fetch('/api/holidays?scope=year');
-=======
-      const resHolidays = await fetch('/api/holidays');
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
       if (resHolidays.ok) setHolidays(await resHolidays.json());
 
       const resRecs = await fetch('/api/recommendations', {
@@ -258,7 +215,6 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
     }
   };
 
-<<<<<<< HEAD
   const fetchUpcomingHolidays = async () => {
     try {
       const res = await fetch('/api/holidays?scope=year');
@@ -274,8 +230,6 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
     } catch (e) { console.error(e); }
   };
 
-=======
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
   // Route verify
   const handleCheckRoute = async () => {
     if (!originId || !destId) return;
@@ -290,13 +244,9 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
       const data = await res.json();
       if (data.available) {
         setRouteStatus('available');
-<<<<<<< HEAD
         setSuggestions([]);
       } else {
         setSuggestions(data.suggestions || []);
-=======
-      } else {
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
         setRouteStatus('unavailable');
       }
     } catch (e) {
@@ -411,41 +361,6 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
     }
   };
 
-<<<<<<< HEAD
-=======
-  const startEditTrip = (trip: SavedTrip) => {
-    setEditingTripId(trip.id);
-    setEditDate(trip.travel_date);
-    setEditTime(trip.travel_time.substring(0, 5));
-    setEditNote(trip.note);
-  };
-
-  const saveEditTrip = async (id: number) => {
-    try {
-      const res = await fetch(`/api/saved-trips/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          travel_date: editDate,
-          travel_time: editTime,
-          note: editNote
-        })
-      });
-
-      if (res.ok) {
-        setEditingTripId(null);
-        fetchSavedTrips();
-        showToast('Trip parameters updated.');
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
   // CROWD FEEDBACK SUBMISSION
   const submitFeedback = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -482,10 +397,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
         setEditingFbId(null);
         setFbOrigin('');
         setFbDest('');
-<<<<<<< HEAD
         setConnectedDestinations([]);
-=======
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
         setFbDate('');
         setFbCrowd('Medium');
         setFbComfort(5);
@@ -505,19 +417,6 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
   };
 
   const startEditFeedback = (fb: Feedback) => {
-<<<<<<< HEAD
-=======
-    // Validate 24 hours lock
-    const createdTime = new Date(fb.created_at || '').getTime();
-    const now = Date.now();
-    const hours = (now - createdTime) / (1000 * 60 * 60);
-
-    if (hours > 24) {
-      alert('Editing of this feedback is locked. Submit is older than 24 hours.');
-      return;
-    }
-
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
     setEditingFbId(fb.id);
     setFbOrigin(fb.origin);
     setFbDest(fb.destination);
@@ -545,7 +444,6 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
     }
   };
 
-<<<<<<< HEAD
   const fetchConnectedDestinations = async (originName: string) => {
     if (!originName) { setConnectedDestinations([]); return; }
     const station = stations.find(s => s.name === originName);
@@ -558,8 +456,6 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
     }
   };
 
-=======
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
   const resetSearch = () => {
     setOriginId('');
     setDestId('');
@@ -607,25 +503,16 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
               <Train className="h-4.5 w-4.5" />
             </span>
             <div id="welcome-text">
-<<<<<<< HEAD
               <p className="text-[10px] font-extrabold text-[#64748b] tracking-wider leading-none">{'PASSENGER CONSOLE'}</p>
               <h2 className="text-sm font-bold text-[#1e293b] font-display mt-1">{'Welcome back, '}{user.username}</h2>
-=======
-              <p className="text-[10px] font-extrabold text-[#64748b] tracking-wider leading-none">PASSENGER CONSOLE</p>
-              <h2 className="text-sm font-bold text-[#1e293b] font-display mt-1">Welcome back, {user.full_name}</h2>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
             </div>
           </div>
 
           <div className="flex items-center gap-2" id="tab-nav">
-<<<<<<< HEAD
             {(isGuest
               ? (['search', 'recommendations'] as const)
               : (['search', 'trips', 'feedback', 'recommendations', 'profile'] as const)
             ).map((tab) => (
-=======
-            {(['search', 'trips', 'feedback', 'recommendations', 'profile'] as const).map((tab) => (
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
               <button
                 key={tab}
                 id={`tab-btn-${tab}`}
@@ -646,12 +533,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                  tab === 'feedback' ? 'Crowd Feedback' : 
                  tab === 'recommendations' ? 'Holidays & Recommendations' : 'Profile Settings'}
               </button>
-<<<<<<< HEAD
             ))}          </div>
-=======
-            ))}
-          </div>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
         </div>
       </div>
 
@@ -661,15 +543,9 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8" id="search-grid">
             <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 md:p-8" id="predictive-flow-card">
               <div className="mb-6" id="search-flow-header">
-<<<<<<< HEAD
                 <span className="bg-indigo-50 border border-indigo-100 text-indigo-600 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md">{'ML-Powered Diagnostic'}</span>
                 <h3 className="font-display text-xl font-bold text-slate-800 mt-2">{'Route Demand Prediction Planner'}</h3>
                 <p className="text-xs text-slate-500 mt-1">{'Select your travel points to estimate ridership counts and demand levels.'}</p>
-=======
-                <span className="bg-indigo-50 border border-indigo-100 text-indigo-600 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md">ML-Powered Diagnostic</span>
-                <h3 className="font-display text-xl font-bold text-slate-800 mt-2">Route Demand Prediction Planner</h3>
-                <p className="text-xs text-slate-500 mt-1">Select your travel points to estimate ridership counts and demand levels.</p>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
               </div>
 
               {/* STEP 1: Select stations */}
@@ -677,20 +553,12 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                 <div className="space-y-4 border-l-2 border-slate-100 pl-4 py-1" id="step-1-block">
                   <div className="flex items-center gap-2 text-slate-700 font-bold text-sm mb-4">
                     <span className="w-5 h-5 bg-slate-900 text-white rounded-full inline-flex items-center justify-center text-xs">1</span>
-<<<<<<< HEAD
                     {'Choose Station Nodes'}
-=======
-                    Choose Station Nodes
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-<<<<<<< HEAD
                       <label className="block text-xs font-semibold text-slate-500 mb-1">{'Origin Station'}</label>
-=======
-                      <label className="block text-xs font-semibold text-slate-500 mb-1">Origin Station</label>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                       <select
                         id="select-origin"
                         disabled={step > 1}
@@ -701,11 +569,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                           setRouteStatus('idle');
                         }}
                       >
-<<<<<<< HEAD
                         <option value="">{'Select origin...'}</option>
-=======
-                        <option value="">Select origin...</option>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                         {Array.from(new Set(stations.map(s => s.state || 'Other'))).map(stateName => (
                           <optgroup key={stateName} label={`${stateName}`} className="font-bold text-slate-800 bg-slate-50 text-xs">
                             {stations.filter(s => (s.state || 'Other') === stateName).map(s => (
@@ -717,11 +581,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                     </div>
 
                     <div>
-<<<<<<< HEAD
                       <label className="block text-xs font-semibold text-slate-500 mb-1">{'Destination Station'}</label>
-=======
-                      <label className="block text-xs font-semibold text-slate-500 mb-1">Destination Station</label>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                       <select
                         id="select-destination"
                         disabled={step > 1}
@@ -732,11 +592,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                           setRouteStatus('idle');
                         }}
                       >
-<<<<<<< HEAD
                         <option value="">{'Select destination...'}</option>
-=======
-                        <option value="">Select destination...</option>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                         {Array.from(new Set(stations.map(s => s.state || 'Other'))).map(stateName => (
                           <optgroup key={stateName} label={`${stateName}`} className="font-bold text-slate-800 bg-slate-50 text-xs">
                             {stations.filter(s => (s.state || 'Other') === stateName).map(s => (
@@ -764,28 +620,19 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                     <div className="mt-3 p-3 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-xl flex items-center justify-between" id="alert-valid-route">
                       <div className="flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-<<<<<<< HEAD
                         <span className="text-xs font-semibold">{'Active route found in stations table!'}</span>
-=======
-                        <span className="text-xs font-semibold">Active route found in stations table!</span>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                       </div>
                       <button
                         id="btn-confirm-continue"
                         onClick={handleContinueToPredict}
                         className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1 rounded-lg transition"
                       >
-<<<<<<< HEAD
                         {'Continue to Predict'}
-=======
-                        Continue to Predict
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                       </button>
                     </div>
                   )}
 
                   {routeStatus === 'unavailable' && (
-<<<<<<< HEAD
                     <div className="mt-3 p-3 bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-xl" id="alert-invalid-route">
                       <div className="flex items-center gap-2 mb-2">
                         <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
@@ -811,11 +658,6 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                           </div>
                         </div>
                       )}
-=======
-                    <div className="mt-3 p-3 bg-red-50 border border-red-100 text-red-800 text-xs rounded-xl flex items-center gap-2" id="alert-invalid-route">
-                      <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
-                      <span className="font-semibold">Selected route not available. Check stations selection.</span>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     </div>
                   )}
                 </div>
@@ -826,20 +668,12 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                 <div className="mt-8 border-l-2 border-indigo-200 pl-4 py-1" id="step-2-block">
                   <div className="flex items-center gap-2 text-slate-700 font-bold text-sm mb-4">
                     <span className="w-5 h-5 bg-indigo-600 text-white rounded-full inline-flex items-center justify-center text-xs">2</span>
-<<<<<<< HEAD
                     {'Input Departure Date & Time Frame'}
-=======
-                    Input Departure Date & Time Frame
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-<<<<<<< HEAD
                       <label className="block text-xs font-semibold text-slate-500 mb-1">{'Travel Date'}</label>
-=======
-                      <label className="block text-xs font-semibold text-slate-500 mb-1">Travel Date</label>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                       <input
                         id="input-travel-date"
                         disabled={step > 2}
@@ -851,11 +685,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                     </div>
 
                     <div>
-<<<<<<< HEAD
                       <label className="block text-xs font-semibold text-slate-500 mb-1">{'Estimated Travel Time'}</label>
-=======
-                      <label className="block text-xs font-semibold text-slate-500 mb-1">Estimated Travel Time</label>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                       <input
                         id="input-travel-time"
                         disabled={step > 2}
@@ -883,11 +713,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                         onClick={resetSearch}
                         className="bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl px-4 py-2 text-xs font-semibold transition"
                       >
-<<<<<<< HEAD
                         {'Change Route'}
-=======
-                        Change Route
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                       </button>
                     </div>
                   )}
@@ -899,43 +725,24 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                 <div className="mt-8 border-l-2 border-emerald-500 pl-4 py-1" id="step-3-block animate-fade-in">
                   <div className="flex items-center gap-2 text-slate-700 font-bold text-sm mb-4">
                     <span className="w-5 h-5 bg-emerald-505 bg-slate-900 text-white rounded-full inline-flex items-center justify-center text-xs">3</span>
-<<<<<<< HEAD
                     {'Diagnostic Report & Estimations'}
-=======
-                    Diagnostic Report & Estimations
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                   </div>
 
                   <div className="p-6 bg-slate-50 border border-slate-100 rounded-2xl md:flex items-center justify-between gap-6">
                     <div>
-<<<<<<< HEAD
                       <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest leading-none">{'Ridership Forecast'}</p>
                       <h4 className="text-3xl font-extrabold text-slate-900 mt-2 font-mono">
                         {predictionResult.predictedRidership} <span className="text-sm font-sans font-medium text-slate-500">{'passengers/train'}</span>
                       </h4>
                       <p className="text-xs text-slate-500 mt-1">
                         {'Est. for '}{predictionResult.origin}{t(' \u2192 ')}{predictionResult.destination}{' on '}{predictionResult.date}{' ('}{predictionResult.time}{')'}
-=======
-                      <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest leading-none">Ridership Forecast</p>
-                      <h4 className="text-3xl font-extrabold text-slate-900 mt-2 font-mono">
-                        {predictionResult.predictedRidership} <span className="text-sm font-sans font-medium text-slate-500">passengers/train</span>
-                      </h4>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Est. for {predictionResult.origin} → {predictionResult.destination} on {predictionResult.date} ({predictionResult.time})
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                       </p>
                     </div>
 
                     <div className="mt-4 md:mt-0 text-center md:text-right">
-<<<<<<< HEAD
                       <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest leading-none mb-1">{'Ridership Load'}</p>
                       <span className={`inline-flex items-center px-4 py-1 border text-sm font-bold rounded-full ${getDemandColor(predictionResult.demandLevel)}`}>
                         {predictionResult.demandLevel}{' Demand'}
-=======
-                      <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest leading-none mb-1">Ridership Load</p>
-                      <span className={`inline-flex items-center px-4 py-1 border text-sm font-bold rounded-full ${getDemandColor(predictionResult.demandLevel)}`}>
-                        {predictionResult.demandLevel} Demand
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                       </span>
                     </div>
                   </div>
@@ -944,7 +751,6 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                   <div className="mt-6 flex flex-wrap gap-2" id="report-actions bg-slate-50">
                     <button
                       id="predict-btn-save"
-<<<<<<< HEAD
                       onClick={() => isGuest ? showToast('Please log in or register to save trips.') : setShowNoteModal(true)}
                       className={`text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
                         isGuest
@@ -954,13 +760,6 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                     >
                       <BookmarkPlus className="h-4 w-4" />
                       {'Save My Trip'}
-=======
-                      onClick={() => setShowNoteModal(true)}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <BookmarkPlus className="h-4 w-4" />
-                      Save My Trip
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     </button>
 
                     <button
@@ -968,11 +767,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                       onClick={handleBookKTMB}
                       className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
                     >
-<<<<<<< HEAD
                       {'Book Ticket on KTMB'}
-=======
-                      Book Ticket on KTMB
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                       <ChevronRight className="h-4 w-4" />
                     </button>
 
@@ -981,11 +776,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                       onClick={resetSearch}
                       className="text-slate-500 hover:text-slate-800 text-xs font-medium px-4 py-2 transition"
                     >
-<<<<<<< HEAD
                       {'Start New Query'}
-=======
-                      Start New Query
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     </button>
                   </div>
                 </div>
@@ -994,7 +785,6 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
 
             {/* Sideline Details */}
             <div className="space-y-6" id="search-sidebar">
-<<<<<<< HEAD
               <div className="bg-amber-50 border border-amber-200 rounded-2xl shadow-sm p-5" id="upcoming-holidays-card">
                 <div className="flex items-center gap-2 mb-2">
                   <Calendar className="w-4 h-4 text-amber-600" />
@@ -1045,48 +835,6 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                       );
                     })
                   )}
-=======
-              <div className="bg-slate-900 text-white rounded-2xl shadow-lg p-6 relative overflow-hidden" id="model-details-card">
-                <div className="absolute right-0 bottom-0 translate-x-1/4 translate-y-1/4 opacity-10">
-                  <Train className="w-48 h-48" />
-                </div>
-                <h4 className="font-display font-bold text-base text-indigo-400">Random Forest Adaptive AI</h4>
-                <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                  The model utilizes the official KMTB historical load sheets to dynamically calculate seasonal demand multipliers. It merges with:
-                </p>
-                <div className="mt-3 space-y-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                    Malaysian calendar events mapping
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                    Commute peaks time tracking
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                    <b>Hybrid volume scaling:</b> factoring real-time crowd demand searches
-                  </div>
-                </div>
-              </div>
-
-              {/* Sample route listings */}
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6" id="popular-routes-card">
-                <h4 className="font-display font-semibold text-slate-800 text-xs uppercase tracking-wider mb-3">Popular Transit Points</h4>
-                <div className="space-y-2 text-xs text-slate-600">
-                  <div className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg transition">
-                    <span>Butterworth ⇄ KL Sentral</span>
-                    <span className="bg-red-50 text-red-700 px-2 py-0.5 rounded text-[10px] font-bold">High Load</span>
-                  </div>
-                  <div className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg transition">
-                    <span>Ipoh ⇄ KL Sentral</span>
-                    <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded text-[10px] font-bold">Medium Load</span>
-                  </div>
-                  <div className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg transition">
-                    <span>Padang Besar ⇄ KL Sentral</span>
-                    <span className="bg-red-50 text-red-700 px-2 py-0.5 rounded text-[10px] font-bold">High Load</span>
-                  </div>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                 </div>
               </div>
             </div>
@@ -1097,28 +845,16 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
         {showNoteModal && (
           <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white border border-slate-100 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-scale-up">
-<<<<<<< HEAD
               <h3 className="font-display font-bold text-lg text-slate-800">{'Add Memo to Saved Trip'}</h3>
               <p className="text-xs text-slate-500 mt-1">{'Mark this trip for later reference (e.g. "Family holiday", "Business conference").'}</p>
               
               <div className="mt-4">
                 <label className="text-xs font-semibold text-slate-500 block mb-1">{'Optional Memoir/Note'}</label>
-=======
-              <h3 className="font-display font-bold text-lg text-slate-800">Add Memo to Saved Trip</h3>
-              <p className="text-xs text-slate-500 mt-1">Mark this trip for later reference (e.g. "Family holiday", "Business conference").</p>
-              
-              <div className="mt-4">
-                <label className="text-xs font-semibold text-slate-500 block mb-1">Optional Memoir/Note</label>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                 <input
                   id="modal-note-input"
                   type="text"
                   className="w-full py-2 px-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-600"
-<<<<<<< HEAD
                   placeholder={'e.g. Balik kampung, Merdeka Week'}
-=======
-                  placeholder="e.g. Balik kampung, Merdeka Week"
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                   value={tripNote}
                   onChange={(e) => setTripNote(e.target.value)}
                 />
@@ -1130,11 +866,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                   className="px-4 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs rounded-xl transition font-medium cursor-pointer"
                   onClick={() => setShowNoteModal(false)}
                 >
-<<<<<<< HEAD
                   {'Cancel'}
-=======
-                  Cancel
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                 </button>
                 <button
                   id="modal-note-btn-save"
@@ -1153,34 +885,20 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
         {activeTab === 'trips' && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6" id="saved-trips-component">
             <div className="mb-6">
-<<<<<<< HEAD
               <h3 className="font-display text-xl font-bold text-slate-800">{'My Saved Trip Itineraries'}</h3>
               <p className="text-xs text-slate-500 mt-1">{'Check predictive indicators or proceed directly to check-out.'}</p>
-=======
-              <h3 className="font-display text-xl font-bold text-slate-800">My Saved Trip Itineraries</h3>
-              <p className="text-xs text-slate-500 mt-1">Modify dates/notes, check predictive indicators, or proceed directly to check-out.</p>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
             </div>
 
             {savedTrips.length === 0 ? (
               <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-2xl">
                 <Bookmark className="w-12 h-12 text-slate-300 mx-auto" />
-<<<<<<< HEAD
                 <h4 className="font-display text-base font-semibold text-slate-700 mt-3">{'No saved trips found'}</h4>
                 <p className="text-xs text-slate-400 mt-1">{'Go to Home/Search and save a prediction itinerary to get started.'}</p>
-=======
-                <h4 className="font-display text-base font-semibold text-slate-700 mt-3">No saved trips found</h4>
-                <p className="text-xs text-slate-400 mt-1">Go to Home/Search and save a prediction itinerary to get started.</p>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                 <button
                   onClick={() => setActiveTab('search')}
                   className="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-1.5 rounded-xl transition cursor-pointer"
                 >
-<<<<<<< HEAD
                   {'Plan Now'}
-=======
-                  Plan Now
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                 </button>
               </div>
             ) : (
@@ -1188,21 +906,12 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold">
-<<<<<<< HEAD
                       <th className="p-3">{'Route Journey'}</th>
                       <th className="p-3">{'Departure Date'}</th>
                       <th className="p-3">{'Estimated Time'}</th>
                       <th className="p-3">{'Forecast Load'}</th>
                       <th className="p-3">{'Memo Notes'}</th>
                       <th className="p-3 text-right">{'Actions'}</th>
-=======
-                      <th className="p-3">Route Journey</th>
-                      <th className="p-3">Departure Date</th>
-                      <th className="p-3">Estimated Time</th>
-                      <th className="p-3">Forecast Load</th>
-                      <th className="p-3">Memo Notes</th>
-                      <th className="p-3 text-right">Actions</th>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium">
@@ -1213,35 +922,10 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                           <span>{trip.origin} ➔ {trip.destination}</span>
                         </td>
                         <td className="p-3">
-<<<<<<< HEAD
                           {trip.travel_date}
                         </td>
                         <td className="p-3 font-mono text-slate-500">
                           {trip.travel_time.substring(0, 5)}
-=======
-                          {editingTripId === trip.id ? (
-                            <input
-                              type="date"
-                              className="py-1 px-2 border border-slate-200 rounded text-xs focus:outline-none"
-                              value={editDate}
-                              onChange={(e) => setEditDate(e.target.value)}
-                            />
-                          ) : (
-                            trip.travel_date
-                          )}
-                        </td>
-                        <td className="p-3 font-mono text-slate-500">
-                          {editingTripId === trip.id ? (
-                            <input
-                              type="time"
-                              className="py-1 px-2 border border-slate-200 rounded text-xs focus:outline-none"
-                              value={editTime}
-                              onChange={(e) => setEditTime(e.target.value)}
-                            />
-                          ) : (
-                            trip.travel_time.substring(0, 5)
-                          )}
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                         </td>
                         <td className="p-3">
                           <span className={`inline-flex px-2 py-0.5 border text-[10px] font-bold rounded-full ${getDemandColor(trip.demand_level)}`}>
@@ -1249,7 +933,6 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                           </span>
                         </td>
                         <td className="p-3">
-<<<<<<< HEAD
                           <span className="text-slate-500 italic">{trip.note || '-'}</span>
                         </td>
                         <td className="p-3 text-right">
@@ -1270,65 +953,6 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
-=======
-                          {editingTripId === trip.id ? (
-                            <input
-                              type="text"
-                              className="py-1 px-2 border border-slate-200 rounded text-xs focus:outline-none w-full"
-                              value={editNote}
-                              onChange={(e) => setEditNote(e.target.value)}
-                            />
-                          ) : (
-                            <span className="text-slate-500 italic">{trip.note || '-'}</span>
-                          )}
-                        </td>
-                        <td className="p-3 text-right">
-                          <div className="flex gap-1.5 justify-end">
-                            {editingTripId === trip.id ? (
-                              <>
-                                <button
-                                  id={`btn-save-inline-trip-${trip.id}`}
-                                  onClick={() => saveEditTrip(trip.id)}
-                                  className="p-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg transition"
-                                >
-                                  <Check className="h-4 w-4" />
-                                </button>
-                                <button
-                                  id={`btn-cancel-inline-trip-${trip.id}`}
-                                  onClick={() => setEditingTripId(null)}
-                                  className="p-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition"
-                                >
-                                  ✖
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                <button
-                                  id={`btn-book-saved-${trip.id}`}
-                                  onClick={() => {
-                                    window.open(`https://online.ktmb.com.my/?from=${encodeURIComponent(trip.origin)}&to=${encodeURIComponent(trip.destination)}&date=${trip.travel_date}`, '_blank');
-                                  }}
-                                  className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded text-[10px] transition"
-                                >
-                                  Book on KTMB
-                                </button>
-                                <button
-                                  id={`btn-edit-saved-${trip.id}`}
-                                  onClick={() => startEditTrip(trip)}
-                                  className="p-1.5 hover:bg-slate-100 text-slate-500 rounded-lg transition hover:text-indigo-600"
-                                >
-                                  <Edit className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  id={`btn-delete-saved-${trip.id}`}
-                                  onClick={() => deleteTrip(trip.id)}
-                                  className="p-1.5 hover:bg-slate-100 text-slate-500 rounded-lg transition hover:text-red-600"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </>
-                            )}
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                           </div>
                         </td>
                       </tr>
@@ -1346,20 +970,13 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
             {/* Feedback Submission Form */}
             <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-100 shadow-sm p-6" id="feedback-form-wrapper">
               <div className="mb-4">
-<<<<<<< HEAD
                 <span className="bg-amber-50 border border-amber-100 text-amber-500 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md">{'Live Assessment'}</span>
                 <h3 className="font-display text-lg font-bold text-slate-800 mt-2">{'Transit Crowd Survey'}</h3>
                 <p className="text-xs text-slate-500 mt-1">{'Let operators and passengers know actual load frames on recent train journeys.'}</p>
-=======
-                <span className="bg-amber-50 border border-amber-100 text-amber-500 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md">Live Assessment</span>
-                <h3 className="font-display text-lg font-bold text-slate-800 mt-2">Transit Crowd Survey</h3>
-                <p className="text-xs text-slate-500 mt-1">Let operators and passengers know actual load frames on recent train journeys.</p>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
               </div>
 
               <form onSubmit={submitFeedback} className="space-y-4" id="fb-form">
                 <div>
-<<<<<<< HEAD
                   <label className="block text-xs font-semibold text-slate-500 mb-1" htmlFor="fb-origin">{'Origin Station'}</label>
                     <select
                       id="fb-origin"
@@ -1397,49 +1014,6 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 mb-1" htmlFor="fb-date">{'Travel Date'}</label>
-=======
-                  <label className="block text-xs font-semibold text-slate-500 mb-1" htmlFor="fb-origin">Origin Station</label>
-                  <select
-                    id="fb-origin"
-                    required
-                    className="w-full py-2 px-3 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-indigo-600 font-sans"
-                    value={fbOrigin}
-                    onChange={(e) => setFbOrigin(e.target.value)}
-                  >
-                    <option value="">Choose origin...</option>
-                    {Array.from(new Set(stations.map(s => s.state || 'Other'))).map(stateName => (
-                      <optgroup key={stateName} label={`${stateName}`} className="font-bold text-slate-800 bg-slate-50 text-xs">
-                        {stations.filter(s => (s.state || 'Other') === stateName).map(s => (
-                          <option key={s.id} value={s.name} className="font-normal text-slate-700 bg-white text-sm">{s.name}</option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1" htmlFor="fb-dest">Destination Station</label>
-                  <select
-                    id="fb-dest"
-                    required
-                    className="w-full py-2 px-3 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-indigo-600 font-sans"
-                    value={fbDest}
-                    onChange={(e) => setFbDest(e.target.value)}
-                  >
-                    <option value="">Choose destination...</option>
-                    {Array.from(new Set(stations.map(s => s.state || 'Other'))).map(stateName => (
-                      <optgroup key={stateName} label={`${stateName}`} className="font-bold text-slate-800 bg-slate-50 text-xs">
-                        {stations.filter(s => (s.state || 'Other') === stateName).map(s => (
-                          <option key={s.id} value={s.name} className="font-normal text-slate-700 bg-white text-sm">{s.name}</option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1" htmlFor="fb-date">Travel Date</label>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                   <input
                     id="fb-date"
                     type="date"
@@ -1452,11 +1026,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
 
                 {/* Crowd Level Selector */}
                 <div>
-<<<<<<< HEAD
                   <label className="block text-xs font-semibold text-slate-500 mb-1.5">{'Registered Crowd Level'}</label>
-=======
-                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">Registered Crowd Level</label>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                   <div className="grid grid-cols-4 gap-1.5" id="crowd-sel-grid">
                     {(['Low', 'Medium', 'High', 'Very High'] as const).map((level) => (
                       <button
@@ -1473,11 +1043,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                         <span className="text-sm">
                           {level === 'Low' ? '🟢' : level === 'Medium' ? '🟡' : level === 'High' ? '🟠' : '🔴'}
                         </span>
-<<<<<<< HEAD
                         <span className="text-[9px] font-bold">{t(level)}</span>
-=======
-                        <span className="text-[9px] font-bold">{level}</span>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                       </button>
                     ))}
                   </div>
@@ -1486,11 +1052,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
 
                 {/* Comfort Star Rating */}
                 <div>
-<<<<<<< HEAD
                   <label className="block text-xs font-semibold text-slate-500 mb-1">{'Comfort Rating (1-5)'}</label>
-=======
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">Comfort Rating (1-5)</label>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                   <div className="flex gap-1" id="fb-comfort-stars">
                     {[1, 2, 3, 4, 5].map((star) => (
                       <button
@@ -1509,11 +1071,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                 {/* Delay toggle */}
                 <div className="p-3 bg-slate-50 rounded-xl space-y-2 border border-slate-100">
                   <div className="flex items-center justify-between">
-<<<<<<< HEAD
                     <span className="text-xs font-semibold text-slate-700">{'Delayed Train Report?'}</span>
-=======
-                    <span className="text-xs font-semibold text-slate-700">Delayed Train Report?</span>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     <button
                       type="button"
                       id="btn-fb-delay-toggle"
@@ -1522,20 +1080,12 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                         fbDelay ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
                       }`}
                     >
-<<<<<<< HEAD
                       {fbDelay ? 'Yes (Delayed)' : t('No (In-Time)')}
-=======
-                      {fbDelay ? 'Yes (Delayed)' : 'No (In-Time)'}
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     </button>
                   </div>
                   {fbDelay && (
                     <div className="animate-scale-up" id="fb-delay-picker">
-<<<<<<< HEAD
                       <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">{'Approx. delay length (Minutes)'}</label>
-=======
-                      <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Approx. delay length (Minutes)</label>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                       <input
                         id="fb-delay-mins"
                         type="number"
@@ -1550,21 +1100,13 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                 </div>
 
                 <div>
-<<<<<<< HEAD
                   <label className="block text-xs font-semibold text-slate-500 mb-1" htmlFor="fb-comment">{'Comment Box'}</label>
-=======
-                  <label className="block text-xs font-semibold text-slate-500 mb-1" htmlFor="fb-comment">Comment Box</label>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                   <textarea
                     id="fb-comment"
                     rows={2}
                     maxLength={300}
                     className="w-full py-2 px-3 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-indigo-600 bg-white"
-<<<<<<< HEAD
                     placeholder={'Enter short transit review (optional)'}
-=======
-                    placeholder="Enter short transit review (optional)"
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     value={fbComment}
                     onChange={(e) => setFbComment(e.target.value)}
                   />
@@ -1577,11 +1119,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                     type="submit"
                     className="flex-1 bg-slate-900 border border-slate-800 text-white rounded-xl py-2 text-xs font-bold hover:bg-slate-800 transition shadow-md shadow-slate-100 cursor-pointer text-center"
                   >
-<<<<<<< HEAD
                     {submittingFb ? t('Saving record...') : editingFbId ? t('Modify Commute Feed') : 'Post Crowd Feedback'}
-=======
-                    {submittingFb ? 'Saving record...' : editingFbId ? 'Modify Commute Feed' : 'Post Crowd Feedback'}
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                   </button>
                   {editingFbId && (
                     <button
@@ -1597,18 +1135,11 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                         setFbDelay(false);
                         setFbDelayMins(0);
                         setFbComment('');
-<<<<<<< HEAD
                         setConnectedDestinations([]);
                       }}
                       className="px-3 py-2 bg-slate-100 hover:bg-slate-250 text-slate-600 text-xs font-medium rounded-xl transition"
                     >
                       {'Cancel'}
-=======
-                      }}
-                      className="px-3 py-2 bg-slate-100 hover:bg-slate-250 text-slate-600 text-xs font-medium rounded-xl transition"
-                    >
-                      Cancel
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     </button>
                   )}
                 </div>
@@ -1617,62 +1148,34 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
 
             {/* Private submission history */}
             <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6" id="feedback-history-list">
-<<<<<<< HEAD
               <h3 className="font-display font-bold text-lg text-slate-800 mb-4">{'My Real-Time Commuter Logbook'}</h3>
-=======
-              <h3 className="font-display font-bold text-lg text-slate-800 mb-4">My Real-Time Commuter Logbook</h3>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
 
               {feedbackHistory.length === 0 ? (
                 <div className="text-center py-20 border border-dashed border-slate-200 rounded-2xl">
                   <MessageSquare className="w-10 h-10 text-slate-300 mx-auto" />
-<<<<<<< HEAD
                   <p className="text-xs text-slate-400 mt-2 font-medium">{'You have not submitted travel feedback surveys yet!'}</p>
-=======
-                  <p className="text-xs text-slate-400 mt-2 font-medium">You have not submitted travel feedback surveys yet!</p>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                 </div>
               ) : (
                 <div className="space-y-4" id="fb-hist">
                   {feedbackHistory.map((fb) => {
-<<<<<<< HEAD
-=======
-                    const fbHours = (Date.now() - new Date(fb.created_at || '').getTime()) / (1000 * 60 * 60);
-                    const canEdit = fbHours <= 24;
-
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     return (
                       <div key={fb.id} className="p-4 rounded-xl border border-slate-100 hover:border-slate-200 bg-slate-50/50 transition">
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div>
                             <span className="text-xs font-bold text-slate-800">
-<<<<<<< HEAD
                               {fb.origin}{t(' ➔ ')}{fb.destination}
                             </span>
                             <span className="text-[10px] text-slate-400 block mt-0.5 font-bold">
                               {t('Journey Date: ')}{fb.travel_date}
-=======
-                              {fb.origin} ➔ {fb.destination}
-                            </span>
-                            <span className="text-[10px] text-slate-400 block mt-0.5 font-bold">
-                              Journey Date: {fb.travel_date}
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                             </span>
                           </div>
 
                           <div className="flex gap-1">
                             <span className={`inline-flex px-2 py-0.5 border text-[9px] font-bold rounded-full ${getDemandColor(fb.crowd_level)}`}>
-<<<<<<< HEAD
                               {t('Crowd: ')}{fb.crowd_level}
                             </span>
                             <span className="inline-flex items-center gap-0.5 px-2 py-0.5 border border-slate-200 bg-white rounded-full text-[9px] text-amber-500 font-extrabold">
                               ⭐ {fb.comfort_rating}{t('/5')}
-=======
-                              Crowd: {fb.crowd_level}
-                            </span>
-                            <span className="inline-flex items-center gap-0.5 px-2 py-0.5 border border-slate-200 bg-white rounded-full text-[9px] text-amber-500 font-extrabold">
-                              ⭐ {fb.comfort_rating}/5
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                             </span>
                           </div>
                         </div>
@@ -1685,25 +1188,16 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                           <div>
                             {fb.delay_reported ? (
                               <span className="text-red-600 font-bold bg-red-50 px-2 py-0.5 rounded">
-<<<<<<< HEAD
                                 {t('Delayed: +')}{fb.delay_minutes}{t(' mins')}
                               </span>
                             ) : (
                               <span className="text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded">
                                 {t('Train on schedule')}
-=======
-                                Delayed: +{fb.delay_minutes} mins
-                              </span>
-                            ) : (
-                              <span className="text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded">
-                                Train on schedule
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                               </span>
                             )}
                           </div>
 
                           <div className="flex gap-2">
-<<<<<<< HEAD
                             <button
                               id={`btn-edit-fb-${fb.id}`}
                               onClick={() => startEditFeedback(fb)}
@@ -1711,29 +1205,12 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                             >
                               {'Edit'}
                             </button>
-=======
-                            {canEdit ? (
-                              <button
-                                id={`btn-edit-fb-${fb.id}`}
-                                onClick={() => startEditFeedback(fb)}
-                                className="text-indigo-600 hover:text-indigo-700 font-semibold cursor-pointer"
-                              >
-                                Edit (Ends in {Math.max(1, Math.round(24 - fbHours))}h)
-                              </button>
-                            ) : (
-                              <span className="text-slate-400 italic">Locked (24h passed)</span>
-                            )}
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                             <button
                               id={`btn-delete-fb-${fb.id}`}
                               onClick={() => deleteFeedback(fb.id)}
                               className="text-red-500 hover:text-red-700 font-semibold cursor-pointer"
                             >
-<<<<<<< HEAD
                               {'Delete'}
-=======
-                              Delete
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                             </button>
                           </div>
                         </div>
@@ -1750,7 +1227,6 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
         {activeTab === 'recommendations' && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6" id="recommendations-component">
             <div className="mb-6">
-<<<<<<< HEAD
               <h3 className="font-display text-xl font-bold text-slate-800">{'Holidays & Recommendations'}</h3>
               <p className="text-xs text-slate-500 mt-1">{'All Malaysian public holidays this year, with smart travel advice tailored to your frequent routes.'}</p>
             </div>
@@ -1796,30 +1272,16 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
             {loadingRecs ? (
               <div className="text-center py-20">
                 <p className="text-slate-500 text-xs font-semibold">{'Crunching holiday travel data...'}</p>
-=======
-              <h3 className="font-display text-xl font-bold text-slate-800">Dynamic Malaysian Holiday Advisor</h3>
-              <p className="text-xs text-slate-500 mt-1">Estimations and advice on major public holiday travels.</p>
-            </div>
-
-            {loadingRecs ? (
-              <div className="text-center py-20">
-                <p className="text-slate-500 text-xs font-semibold">Calculating seasonal trend load models...</p>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
               </div>
             ) : recommendations.length === 0 ? (
               <div className="text-center py-16 border border-dashed border-slate-200 rounded-2xl">
                 <Calendar className="w-10 h-10 text-slate-350 mx-auto" />
-<<<<<<< HEAD
                 <p className="text-xs text-slate-400 mt-2">{'No holidays or recommendation maps defined for tracking.'}</p>
-=======
-                <p className="text-xs text-slate-400 mt-2">No holidays or recommendation maps defined for tracking.</p>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4" id="recs-list">
                 {recommendations.map((rec) => {
                   const isHigh = rec.demandLevel === 'High' || rec.demandLevel === 'Very High';
-<<<<<<< HEAD
                   const daysRemaining = Math.ceil(
                     (new Date(rec.holidayDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
                   );
@@ -1828,13 +1290,10 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                     rec.demandLevel === 'Medium' ? 'w-2/4 bg-amber-400' :
                     rec.demandLevel === 'High' ? 'w-3/4 bg-orange-400' :
                     'w-full bg-red-400';
-=======
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                   return (
                     <div
                       key={rec.holidayId}
                       className={`p-5 rounded-2xl border transition relative overflow-hidden ${
-<<<<<<< HEAD
                         isHigh ? 'border-orange-200 bg-gradient-to-br from-orange-50/60 to-white' : 'border-slate-150 bg-white'
                       }`}
                     >
@@ -1854,20 +1313,10 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                         <div>
                           <span className="text-[10px] bg-indigo-50 text-indigo-600 font-bold px-2 py-0.5 rounded-full">{'Malaysia Public Event'}</span>
                           <h4 className="font-display font-extrabold text-slate-800 mt-1.5 text-base">{rec.holidayName}</h4>
-=======
-                        isHigh ? 'border-amber-200 bg-amber-50/20' : 'border-slate-150 bg-slate-50/50'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded">Malaysia Public Event</span>
-                          <h4 className="font-display font-extrabold text-slate-800 mt-1">{rec.holidayName}</h4>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                           <h5 className="text-[11px] font-mono font-bold text-indigo-600 mt-0.5 flex items-center gap-1">
                             <Calendar className="h-3.5 w-3.5" /> {rec.holidayDate}
                           </h5>
                         </div>
-<<<<<<< HEAD
                       </div>
 
                       {/* Demand level bar */}
@@ -1892,18 +1341,6 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                         isHigh ? 'bg-red-50/60 border-red-100' : 'bg-emerald-50/60 border-emerald-100'
                       }`}>
                         <div className="flex items-start gap-1.5">
-=======
-
-                        <div className="text-right">
-                          <span className={`inline-flex px-2 py-0.5 border text-[10px] font-bold rounded-full ${getDemandColor(rec.demandLevel)}`}>
-                            {rec.demandLevel} Demand
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 p-3 bg-white rounded-xl border border-slate-100 text-xs leading-relaxed" id="rec-bulletin">
-                        <div className="flex items-start gap-1.5" id="rec-card-body">
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                           {isHigh ? (
                             <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
                           ) : (
@@ -1911,42 +1348,27 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                           )}
                           <div>
                             <p className="text-slate-700 font-medium">{rec.recommendation}</p>
-<<<<<<< HEAD
                             {rec.recommendedDate && (
                               <div className="mt-1.5 inline-flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-amber-200/60">
                                 <Sparkles className="h-3 w-3 text-amber-500" />
                                 <span className="text-[10px] font-bold text-amber-700">{'Best to book around: '}{rec.recommendedDate}</span>
                               </div>
                             )}
-=======
-                            <p className="text-[10px] text-slate-400 mt-1 font-semibold block">Calculated route: {rec.origin} ➔ {rec.destination}</p>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                           </div>
                         </div>
                       </div>
 
-<<<<<<< HEAD
                       <div className="mt-4 flex items-center gap-2">
-=======
-                      <div className="mt-3 float-left">
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                         <button
                           id={`rec-btn-book-${rec.holidayId}`}
                           onClick={() => {
                             window.open(`https://online.ktmb.com.my/?from=${encodeURIComponent(rec.origin)}&to=${encodeURIComponent(rec.destination)}&date=${rec.holidayDate}`, '_blank');
                           }}
-<<<<<<< HEAD
                           className="flex-1 bg-slate-900 text-white px-3 py-2 rounded-lg text-[11px] font-extrabold hover:bg-slate-800 cursor-pointer transition"
                         >
                           {'Book Now '}&#8594;
                         </button>
                         <span className="text-[10px] text-slate-400 font-medium">{rec.holidayName}</span>
-=======
-                          className="bg-slate-900 border-b border-black text-white px-3 py-1 rounded-lg text-[10px] font-extrabold hover:bg-slate-800 cursor-pointer"
-                        >
-                          Book For {rec.holidayName}
-                        </button>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                       </div>
                     </div>
                   );
@@ -1963,7 +1385,6 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
             <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col justify-between" id="profile-details-wrapper">
               <div>
                 <span className="bg-indigo-50 border border-indigo-100 text-[#4f46e5] text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md">
-<<<<<<< HEAD
                   {t('Active Session')}
                 </span>
                 <h3 className="font-display text-lg font-bold text-slate-800 mt-2">{'Identity Credentials'}</h3>
@@ -1972,49 +1393,25 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                 <div className="mt-6 space-y-4" id="profile-stats">
                   <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
                     <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">{'Full Name'}</span>
-=======
-                  Active Session
-                </span>
-                <h3 className="font-display text-lg font-bold text-slate-800 mt-2">Identity Credentials</h3>
-                <p className="text-xs text-slate-500 mt-1">Review active security state & account registration scopes.</p>
-                
-                <div className="mt-6 space-y-4" id="profile-stats">
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Full Name</span>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     <span className="text-sm font-bold text-slate-700">{user.full_name}</span>
                   </div>
 
                   <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-<<<<<<< HEAD
                     <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">{t('Username ID')}</span>
-=======
-                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Username ID</span>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     <span className="text-sm font-bold text-slate-700">{user.username}</span>
                   </div>
 
                   <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-<<<<<<< HEAD
                     <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">{t('Assigned Privilege Role')}</span>
-=======
-                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Assigned Privilege Role</span>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     <span className="text-xs font-bold bg-[#e0e7ff] text-[#4f46e5] px-2 py-0.5 rounded-full inline-block uppercase tracking-wide mt-1">
                       {user.role}
                     </span>
                   </div>
 
                   <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-<<<<<<< HEAD
                     <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">{'Security Shield Status'}</span>
                     <span className="text-xs font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full inline-block uppercase tracking-wide mt-1">
                       {user.status || t('Active')}
-=======
-                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Security Shield Status</span>
-                    <span className="text-xs font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full inline-block uppercase tracking-wide mt-1">
-                      {user.status || 'Active'}
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     </span>
                   </div>
                 </div>
@@ -2022,11 +1419,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
 
               <div className="mt-8 pt-4 border-t border-slate-100 text-[11px] text-slate-400 font-semibold flex items-center gap-1.5 justify-center">
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-<<<<<<< HEAD
                 <span>{t('Encrypted with SHA-256 equivalent standard')}</span>
-=======
-                <span>Encrypted with SHA-256 equivalent standard</span>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
               </div>
             </div>
 
@@ -2034,19 +1427,11 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
             <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 md:p-8" id="profile-password-form">
               <div className="mb-6">
                 <span className="bg-red-50 border border-red-100 text-red-650 text-red-650 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md">
-<<<<<<< HEAD
                   {t('Cryptographic Control')}
                 </span>
                 <h3 className="font-display text-xl font-bold text-slate-800 mt-2">{'Update Account Password'}</h3>
                 <p className="text-xs text-slate-500 mt-1">
                   {'Enhance security by updating your sign-in credentials. Multi-factor policies require a highly secure setup.'}
-=======
-                  Cryptographic Control
-                </span>
-                <h3 className="font-display text-xl font-bold text-slate-800 mt-2">Update Account Password</h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  Enhance security by updating your sign-in credentials. Multi-factor policies require a highly secure setup.
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                 </p>
               </div>
 
@@ -2067,22 +1452,14 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
               <form onSubmit={handleChangePassword} className="space-y-4" id="form-change-pass">
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 mb-1" htmlFor="old-password">
-<<<<<<< HEAD
                     {'Current Password'}
-=======
-                    Current Password
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                   </label>
                   <input
                     id="old-password"
                     type="password"
                     required
                     className="w-full py-2 px-3.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-600 font-sans"
-<<<<<<< HEAD
                     placeholder={t('Enter current active password')}
-=======
-                    placeholder="Enter current active password"
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     value={oldPassword}
                     onChange={(e) => setOldPassword(e.target.value)}
                   />
@@ -2091,22 +1468,14 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 mb-1" htmlFor="new-password">
-<<<<<<< HEAD
                       {'New Strong Password'}
-=======
-                      New Strong Password
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     </label>
                     <input
                       id="new-password"
                       type="password"
                       required
                       className="w-full py-2 px-3.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-600 font-sans"
-<<<<<<< HEAD
                       placeholder={t('At least 8 complex characters')}
-=======
-                      placeholder="At least 8 complex characters"
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                     />
@@ -2114,22 +1483,14 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 mb-1" htmlFor="confirm-password">
-<<<<<<< HEAD
                       {'Confirm New Password'}
-=======
-                      Confirm New Password
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     </label>
                     <input
                       id="confirm-password"
                       type="password"
                       required
                       className="w-full py-2 px-3.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-600 font-sans"
-<<<<<<< HEAD
                       placeholder={t('Re-enter new secure password')}
-=======
-                      placeholder="Re-enter new secure password"
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                     />
@@ -2138,54 +1499,34 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
 
                 {/* Password strength visual guidelines */}
                 <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 mt-6" id="pass-hardness-guide">
-<<<<<<< HEAD
                   <h4 className="text-xs font-bold text-slate-700 mb-2">{t('Required Encryption Requirements')}</h4>
-=======
-                  <h4 className="text-xs font-bold text-slate-700 mb-2">Required Encryption Requirements</h4>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                     <div className="flex items-center gap-2 font-medium">
                       <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${newPassword.length >= 8 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-500'}`}>
                         {newPassword.length >= 8 ? '✓' : '•'}
                       </span>
-<<<<<<< HEAD
                       <span className={newPassword.length >= 8 ? 'text-emerald-700' : 'text-slate-500'}>{t('Minimum 8 characters')}</span>
-=======
-                      <span className={newPassword.length >= 8 ? 'text-emerald-700' : 'text-slate-500'}>Minimum 8 characters</span>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     </div>
 
                     <div className="flex items-center gap-2 font-medium">
                       <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${/[^A-Za-z0-9]/.test(newPassword) ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-500'}`}>
                         {/[^A-Za-z0-9]/.test(newPassword) ? '✓' : '•'}
                       </span>
-<<<<<<< HEAD
                       <span className={/[^A-Za-z0-9]/.test(newPassword) ? 'text-emerald-700' : 'text-slate-500'}>{t('At least one symbol (e.g., @, #, $, !)')}</span>
-=======
-                      <span className={/[^A-Za-z0-9]/.test(newPassword) ? 'text-emerald-700' : 'text-slate-500'}>At least one symbol (e.g., @, #, $, !)</span>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     </div>
 
                     <div className="flex items-center gap-2 font-medium">
                       <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${/[A-Z]/.test(newPassword) ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-500'}`}>
                         {/[A-Z]/.test(newPassword) ? '✓' : '•'}
                       </span>
-<<<<<<< HEAD
                       <span className={/[A-Z]/.test(newPassword) ? 'text-emerald-700' : 'text-slate-500'}>{t('At least one uppercase letter (A-Z)')}</span>
-=======
-                      <span className={/[A-Z]/.test(newPassword) ? 'text-emerald-700' : 'text-slate-500'}>At least one uppercase letter (A-Z)</span>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     </div>
 
                     <div className="flex items-center gap-2 font-medium">
                       <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${/[0-9]/.test(newPassword) ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-500'}`}>
                         {/[0-9]/.test(newPassword) ? '✓' : '•'}
                       </span>
-<<<<<<< HEAD
                       <span className={/[0-9]/.test(newPassword) ? 'text-emerald-700' : 'text-slate-500'}>{t('At least one numeric digit (0-9)')}</span>
-=======
-                      <span className={/[0-9]/.test(newPassword) ? 'text-emerald-700' : 'text-slate-500'}>At least one numeric digit (0-9)</span>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     </div>
                   </div>
                 </div>
@@ -2197,16 +1538,11 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                     disabled={changingPass}
                     className="bg-slate-900 border-b-2 border-black hover:bg-slate-800 text-white rounded-xl px-6 py-2.5 text-xs font-extrabold transition cursor-pointer disabled:opacity-50 flex items-center gap-2"
                   >
-<<<<<<< HEAD
                     {changingPass ? t('Changing credentials...') : 'Commit Password Change'}
-=======
-                    {changingPass ? 'Changing credentials...' : 'Commit Password Change'}
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                   </button>
                 </div>
               </form>
             </div>
-<<<<<<< HEAD
 
             {/* Delete Account Section */}
             <div className="lg:col-span-2 bg-white rounded-2xl border border-red-100 shadow-sm p-6 md:p-8 mt-4">
@@ -2262,11 +1598,3 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
 
 
 
-=======
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413

@@ -49,11 +49,50 @@ export async function detectPwaStatus(): Promise<PwaStatus> {
   return { state: 'available', canInstall: true, isIos: false };
 }
 
-export async function registerPwa(): Promise<void> {
+/**
+ * Removes service workers and caches that do not belong to this app, so a
+ * stale worker from another project (or an older hand-written /sw.js) cannot
+ * keep serving a cached shell.
+ *
+ * The generated worker from vite-plugin-pwa is always served from `/sw.js`,
+ * so anything else registered on this origin is treated as foreign.
+ */
+export async function cleanupForeignServiceWorkers(): Promise<void> {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+
   try {
-    await navigator.serviceWorker.register('/sw.js');
-  } catch { /* ignore */ }
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(
+      registrations.map(async (registration) => {
+        const scriptUrl = registration.active?.scriptURL || registration.waiting?.scriptURL || registration.installing?.scriptURL || '';
+        const isOwnWorker = (() => {
+          try {
+            const url = new URL(scriptUrl);
+            return url.origin === window.location.origin && url.pathname === '/sw.js';
+          } catch {
+            return false;
+          }
+        })();
+        if (!isOwnWorker) await registration.unregister();
+      }),
+    );
+  } catch {
+    /* ignore */
+  }
+
+  if (typeof caches === 'undefined') return;
+  try {
+    const keys = await caches.keys();
+    await Promise.all(
+      keys
+        // Workbox manages its own precache/runtime caches; everything else is
+        // a leftover from another app or an older version of this one.
+        .filter((key) => !key.startsWith('workbox-') && !key.startsWith('ets-'))
+        .map((key) => caches.delete(key)),
+    );
+  } catch {
+    /* ignore */
+  }
 }
 
 export function getPwaPlatform(): PwaPlatform {

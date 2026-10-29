@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import { User } from '../types.ts';
-<<<<<<< HEAD
 import { Train, Shield, User as UserIcon, Lock, Loader2, ArrowRight } from 'lucide-react';
-=======
-import { Train, Shield, User as UserIcon, Lock, Sparkles, Loader2, ArrowRight } from 'lucide-react';
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
 
 interface LoginViewProps {
   onLoginSuccess: (user: User, token: string) => void;
@@ -12,7 +8,6 @@ interface LoginViewProps {
 
 export default function LoginView({ onLoginSuccess }: LoginViewProps) {
   const [isRegister, setIsRegister] = useState(false);
-<<<<<<< HEAD
   const [isForgot, setIsForgot] = useState(false);
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
@@ -48,16 +43,6 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
       setLoading(false);
     }
   };
-=======
-  const [fullName, setFullName] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [userType, setUserType] = useState<'passenger' | 'operator' | 'admin'>('passenger');
-  
-  const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,10 +63,6 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
     try {
       if (isRegister) {
-<<<<<<< HEAD
-=======
-        // Register API Call
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
         const response = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -103,32 +84,20 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
         setSuccessMsg('Registration successful! Logging you in...');
         
-<<<<<<< HEAD
-=======
-        // Auto sign-in after register
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
         const loginResponse = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             username: username.toLowerCase().trim(),
-<<<<<<< HEAD
             password,
             language: 'en'
-=======
-            password
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
           })
         });
 
         const loginData = await loginResponse.json();
         
         if (!loginResponse.ok) {
-<<<<<<< HEAD
           setErrorMsg('Registration successful, but auto-login failed. Please sign in manually.');
-=======
-          setErrorMsg('Registration was successful, but auto-login failed. Please sign in manually.');
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
           setIsRegister(false);
           setLoading(false);
           return;
@@ -136,21 +105,13 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
         onLoginSuccess(loginData.user, loginData.token);
       } else {
-<<<<<<< HEAD
-=======
-        // Login API Call
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
         const response = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             username: username.toLowerCase().trim(),
-<<<<<<< HEAD
             password,
             language: 'en'
-=======
-            password
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
           })
         });
 
@@ -172,7 +133,6 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
     }
   };
 
-<<<<<<< HEAD
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -226,30 +186,15 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
             <button onClick={() => window.location.href = '/bm'} className="px-3 py-1.5 text-slate-500 hover:text-[#4f46e5] cursor-pointer">BM</button>
           </div>
         </div>
-=======
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] px-4 py-12 font-sans" id="login-container">
-      <div className="w-full max-w-md bg-white border border-[#e2e8f0] shadow-md rounded-2xl overflow-hidden" id="login-card">
-        {/* Card Header Banner in Sleek Interface Theme */}
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
         <div className="bg-white border-b border-[#e2e8f0] px-6 py-8 text-center" id="brand-header">
           <div className="inline-flex items-center justify-center p-3.5 bg-[#e0e7ff]/60 border border-[#c7d2fe] rounded-2xl mb-3.5 shadow-sm" id="brand-icon-wrapper">
             <Train className="h-7 w-7 text-[#4f46e5]" id="brand-train-icon" />
           </div>
-<<<<<<< HEAD
           <h1 className="font-display text-[22px] font-extrabold tracking-tight text-[#111827]" id="app-title">{'ETS RiderPredict'}</h1>
           <p className="text-[#64748b] text-xs mt-1.5 font-medium" id="app-subtitle">{'Public Transport Ridership Prediction & Travel Planning System'}</p>
         </div>
 
         <div className="p-8 pt-2" id="form-container">
-=======
-          <h1 className="font-display text-[22px] font-extrabold tracking-tight text-[#111827]" id="app-title">ETS RiderPredict</h1>
-          <p className="text-[#64748b] text-xs mt-1.5 font-medium" id="app-subtitle">Public Transport Ridership Prediction & Travel Planning System</p>
-        </div>
-
-        {/* Form area */}
-        <div className="p-8" id="form-container">
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
           <h2 className="font-display text-base font-bold text-[#1e293b] mb-5" id="action-heading">
             {isRegister ? 'Register New Account' : 'Sign In'}
           </h2>
@@ -269,11 +214,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
           <form onSubmit={handleSubmit} className="space-y-4" id="auth-form">
             {isRegister && (
               <div id="field-fullname">
-<<<<<<< HEAD
                 <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1" htmlFor="fullname">{'Full Name'}</label>
-=======
-                <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1" htmlFor="fullname">Full Name</label>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                 <div className="relative">
                   <UserIcon className="absolute left-3.5 top-[11px] h-4 w-4 text-[#64748b]" />
                   <input
@@ -281,11 +222,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                     type="text"
                     required
                     className="w-full pl-10 pr-4 py-2 border border-[#e2e8f0] rounded-xl text-xs focus:outline-none focus:border-[#4f46e5] bg-[#f8fafc] focus:bg-white transition h-10 font-semibold text-[#1e293b]"
-<<<<<<< HEAD
                     placeholder={'e.g. Mohd Amin'}
-=======
-                    placeholder="e.g. Mohd Amin"
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                   />
@@ -294,11 +231,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
             )}
 
             <div id="field-username">
-<<<<<<< HEAD
               <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1" htmlFor="username">{'Username'}</label>
-=======
-              <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1" htmlFor="username">Username</label>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
               <div className="relative">
                 <UserIcon className="absolute left-3.5 top-[11px] h-4 w-4 text-[#64748b]" />
                 <input
@@ -307,11 +240,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                   required
                   autoCapitalize="none"
                   className="w-full pl-10 pr-4 py-2 border border-[#e2e8f0] rounded-xl text-xs focus:outline-none focus:border-[#4f46e5] bg-[#f8fafc] focus:bg-white transition h-10 font-semibold text-[#1e293b]"
-<<<<<<< HEAD
                   placeholder={'Enter username'}
-=======
-                  placeholder="Choose username"
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                 />
@@ -319,11 +248,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
             </div>
 
             <div id="field-password">
-<<<<<<< HEAD
               <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1" htmlFor="password">{'Password'}</label>
-=======
-              <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1" htmlFor="password">Password</label>
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
               <div className="relative">
                 <Lock className="absolute left-3.5 top-[11px] h-4 w-4 text-[#64748b]" />
                 <input
@@ -331,11 +256,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                   type="password"
                   required
                   className="w-full pl-10 pr-4 py-2 border border-[#e2e8f0] rounded-xl text-xs focus:outline-none focus:border-[#4f46e5] bg-[#f8fafc] focus:bg-white transition h-10 font-semibold text-[#1e293b]"
-<<<<<<< HEAD
                   placeholder={'Enter password'}
-=======
-                  placeholder="Enter password"
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -344,15 +265,9 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
             {isRegister && (
               <div id="field-usertype">
-<<<<<<< HEAD
                 <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-2">{'User Type / Role'}</label>
                 <div className="grid grid-cols-2 gap-2" id="role-grid">
                   {(['passenger', 'operator'] as const).map((role) => (
-=======
-                <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-2">User Type / Role</label>
-                <div className="grid grid-cols-3 gap-2" id="role-grid">
-                  {(['passenger', 'operator', 'admin'] as const).map((role) => (
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     <button
                       key={role}
                       type="button"
@@ -364,11 +279,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                       }`}
                       onClick={() => setUserType(role)}
                     >
-<<<<<<< HEAD
                       {role === 'operator' ? 'Operator' : 'Passenger/User'}
-=======
-                      {role === 'operator' ? 'ETS Operator' : role}
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                     </button>
                   ))}
                 </div>
@@ -384,11 +295,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-<<<<<<< HEAD
                   {'Please Wait...'}
-=======
-                  Please Wait...
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
                 </>
               ) : (
                 <>
@@ -397,7 +304,6 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                 </>
               )}
             </button>
-<<<<<<< HEAD
 
             {!isRegister && (
               <div className="mt-2 text-center">
@@ -417,11 +323,6 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
             )}
           </form>
 
-=======
-          </form>
-
-          {/* Toggle register view */}
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413
           <div className="mt-6 text-center border-t border-[#e2e8f0] pt-4.5" id="form-toggle-wrapper">
             <button
               id="btn-toggle-auth-mode"
@@ -432,7 +333,6 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                 setSuccessMsg(null);
               }}
             >
-<<<<<<< HEAD
               {isRegister ? 'Already have an account? Sign In' : 'Don\'t have an account? Register here'}
             </button>
 
@@ -558,13 +458,3 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
     </div>
   );
 };
-=======
-              {isRegister ? 'Already have an account? Sign In' : "Don't have an account? Register here"}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
->>>>>>> aaaef21333c9377a4d015b0ea91c142dab292413

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Download, Smartphone, X } from 'lucide-react';
-import { detectPwaStatus, isStandaloneDisplay, registerPwa, type PwaStatus } from '../lib/pwa';
+import { detectPwaStatus, isStandaloneDisplay, type PwaStatus } from '../lib/pwa';
 
 interface Props {
   className?: string;
@@ -38,7 +38,6 @@ export default function InstallAppButton({ className }: Props) {
       const outcome = (result && result.outcome) || 'dismissed';
       if (outcome === 'accepted') {
         setStatus({ state: 'installed', canInstall: false, isIos: false });
-        await registerPwa();
       } else {
         deferredPrompt.current = null;
         setStatus({ state: 'checking', canInstall: false, isIos: false });
