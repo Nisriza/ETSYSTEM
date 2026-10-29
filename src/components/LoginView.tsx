@@ -1,12 +1,18 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { User } from '../types.ts';
 import { Train, Shield, User as UserIcon, Lock, Loader2, ArrowRight } from 'lucide-react';
+import GoogleSignInButton from './GoogleSignInButton.tsx';
+import { apiFetch } from '../lib/api.ts';
 
 interface LoginViewProps {
   onLoginSuccess: (user: User, token: string) => void;
+  /** Message from a failed Google redirect (shown once, then cleared by the user). */
+  initialError?: string | null;
+  /** Route Supabase should return to after Google OAuth. */
+  redirectPath?: string;
 }
 
-export default function LoginView({ onLoginSuccess }: LoginViewProps) {
+export default function LoginView({ onLoginSuccess, initialError = null, redirectPath = '/' }: LoginViewProps) {
   const [isRegister, setIsRegister] = useState(false);
   const [isForgot, setIsForgot] = useState(false);
   const [fullName, setFullName] = useState('');
@@ -22,13 +28,18 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
   const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
   const [guestPrompt, setGuestPrompt] = useState(false);
 
+  // Surface a Google redirect failure that happened outside this component.
+  useEffect(() => {
+    if (initialError) setErrorMsg(initialError);
+  }, [initialError]);
+
   const startGuestSession = async (withTutorial: boolean) => {
     setGuestPrompt(false);
     setLoading(true);
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
-      const res = await fetch('/api/auth/guest', { method: 'POST' });
+      const res = await apiFetch('/api/auth/guest', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) {
         setErrorMsg(data.error || 'Failed to start guest session.');
@@ -63,7 +74,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
     try {
       if (isRegister) {
-        const response = await fetch('/api/auth/register', {
+        const response = await apiFetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -84,7 +95,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
         setSuccessMsg('Registration successful! Logging you in...');
         
-        const loginResponse = await fetch('/api/auth/login', {
+        const loginResponse = await apiFetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -105,7 +116,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
         onLoginSuccess(loginData.user, loginData.token);
       } else {
-        const response = await fetch('/api/auth/login', {
+        const response = await apiFetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -150,7 +161,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/forgot-password', {
+      const res = await apiFetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -190,7 +201,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
           <div className="inline-flex items-center justify-center p-3.5 bg-[#e0e7ff]/60 border border-[#c7d2fe] rounded-2xl mb-3.5 shadow-sm" id="brand-icon-wrapper">
             <Train className="h-7 w-7 text-[#4f46e5]" id="brand-train-icon" />
           </div>
-          <h1 className="font-display text-[22px] font-extrabold tracking-tight text-[#111827]" id="app-title">{'ETS RiderPredict'}</h1>
+          <h1 className="font-display text-[22px] font-extrabold tracking-tight text-[#111827]" id="app-title">{'ETS Rider Predict System'}</h1>
           <p className="text-[#64748b] text-xs mt-1.5 font-medium" id="app-subtitle">{'Public Transport Ridership Prediction & Travel Planning System'}</p>
         </div>
 
@@ -210,6 +221,21 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
               {successMsg}
             </div>
           )}
+
+          <div className="mb-4" id="google-auth-block">
+            <GoogleSignInButton
+              label="Sign in with Google"
+              loadingLabel="Redirecting to Google..."
+              redirectPath={redirectPath}
+              disabled={loading}
+              onError={(message) => setErrorMsg(message)}
+            />
+            <div className="flex items-center gap-3 my-4" aria-hidden="true">
+              <span className="flex-1 h-px bg-[#e2e8f0]" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">or use your account</span>
+              <span className="flex-1 h-px bg-[#e2e8f0]" />
+            </div>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4" id="auth-form">
             {isRegister && (

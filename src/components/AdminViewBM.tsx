@@ -6,6 +6,7 @@ import {
   RotateCw, RefreshCw, CheckCircle2, ChevronRight, Sparkles, Server, 
   TrendingUp, BarChart, Lock, AlertCircle, AlertTriangle, Play, Loader2, DownloadCloud, Settings, UploadCloud, FileSpreadsheet
 } from 'lucide-react';
+import { apiFetch } from '../lib/api.ts';
 
 interface AdminViewProps {
   user: User;
@@ -47,6 +48,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
   const [editingHolidayId, setEditingHolidayId] = useState<number | null>(null);
   const [editHolidayName, setEditHolidayName] = useState('');
   const [editHolidayDate, setEditHolidayDate] = useState('');
+  const [syncingHolidays, setSyncingHolidays] = useState(false);
 
   // States: Operator Approval
   const [operatorList, setOperatorList] = useState<OperatorRecord[]>([]);
@@ -109,7 +111,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
     if (activeSubTab === 'holidays') fetchHolidays();
     if (activeSubTab === 'model') {
       fetchModelMetrics();
-      fetch('/api/admin/dataset', { headers: { 'Authorization': `Bearer ${token}` } })
+      apiFetch('/api/admin/dataset', { headers: { 'Authorization': `Bearer ${token}` } })
         .then(r => r.ok ? r.json() : null)
         .then(d => setDatasetExists(d?.exists ?? false))
         .catch(() => setDatasetExists(false));
@@ -155,7 +157,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
   // ==================== USERS CRUD ====================
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/admin/users', { headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await apiFetch('/api/admin/users', { headers: { 'Authorization': `Bearer ${token}` } });
       if (res.ok) setUsersList(await res.json());
     } catch (e) {
       console.error(e);
@@ -167,7 +169,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
     if (!newFullname.trim() || !newUsername.trim() || !newPassword.trim()) return;
     setSavingUser(true);
     try {
-      const res = await fetch('/api/admin/users', {
+      const res = await apiFetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ full_name: newFullname, username: newUsername, password: newPassword, role: newRole })
@@ -191,7 +193,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
   const toggleSuspension = async (userId: number, currentStatus: string) => {
     const nextStatus = currentStatus === 'active' ? 'suspended' : 'active';
     try {
-      const res = await fetch(`/api/admin/users/${userId}`, {
+      const res = await apiFetch(`/api/admin/users/${userId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -212,7 +214,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
   const deleteUser = async (userId: number) => {
       if (!window.confirm('Padamkan pengguna ini?')) return;
     try {
-      const res = await fetch(`/api/admin/users/${userId}`, {
+      const res = await apiFetch(`/api/admin/users/${userId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -230,7 +232,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
 
   const saveEditUser = async (userId: number) => {
     try {
-      const res = await fetch(`/api/admin/users/${userId}`, {
+      const res = await apiFetch(`/api/admin/users/${userId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -252,7 +254,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
   const fetchTelemetry = async () => {
     setLoadingTelemetry(true);
     try {
-      const res = await fetch('/api/admin/system-usage', { headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await apiFetch('/api/admin/system-usage', { headers: { 'Authorization': `Bearer ${token}` } });
       if (res.ok) setTelemetry(await res.json());
     } catch (e) {
       console.error(e);
@@ -264,10 +266,43 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
   // ==================== MALAYSIAN EVENTS AND HOLIDAYS CRUD ====================
   const fetchHolidays = async () => {
     try {
-      const res = await fetch('/api/holidays?all=true', { headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await apiFetch('/api/holidays?all=true', { headers: { 'Authorization': `Bearer ${token}` } });
       if (res.ok) setHolidays(await res.json());
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  /**
+   * Menarik cuti umum kebangsaan Malaysia tahun semasa daripada Nager.Date.
+   * Baris sedia ada tidak diubah supaya suntingan admin dan cuti negeri kekal.
+   */
+  const handleSyncHolidays = async () => {
+    setSyncingHolidays(true);
+    try {
+      const res = await apiFetch('/api/admin/holidays/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ year: new Date().getFullYear() })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        showToast(
+          `Berjaya selaras ${data.fetched ?? 0} cuti untuk ${data.year ?? new Date().getFullYear()}: ` +
+          `${data.inserted ?? 0} ditambah, ${data.skipped ?? 0} sudah wujud.`
+        );
+        fetchHolidays();
+      } else {
+        showToast(data.error || 'Penyelarasan cuti gagal.');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('Penyelarasan cuti gagal. Sila semak sambungan pelayan.');
+    } finally {
+      setSyncingHolidays(false);
     }
   };
 
@@ -275,7 +310,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
     e.preventDefault();
     if (!newHolidayName.trim() || !newHolidayDate) return;
     try {
-      const res = await fetch('/api/admin/holidays', {
+      const res = await apiFetch('/api/admin/holidays', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -298,7 +333,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
   const deleteHoliday = async (id: number) => {
     if (!window.confirm('Padamkan cuti ini?')) return;
     try {
-      const res = await fetch(`/api/admin/holidays/${id}`, {
+      const res = await apiFetch(`/api/admin/holidays/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -313,7 +348,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
 
   const saveEditHoliday = async (id: number) => {
     try {
-      const res = await fetch(`/api/admin/holidays/${id}`, {
+      const res = await apiFetch(`/api/admin/holidays/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -335,7 +370,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
   const fetchOperators = async () => {
     setLoadingOperators(true);
     try {
-      const res = await fetch('/api/admin/operators', { headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await apiFetch('/api/admin/operators', { headers: { 'Authorization': `Bearer ${token}` } });
       if (res.ok) setOperatorList(await res.json());
     } catch (e) {
       console.error(e);
@@ -346,7 +381,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
 
   const handleApproveOperator = async (id: number) => {
     try {
-      const res = await fetch(`/api/admin/operators/${id}/approve`, {
+      const res = await apiFetch(`/api/admin/operators/${id}/approve`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -361,7 +396,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
 
   const handleRejectOperator = async (id: number) => {
     try {
-      const res = await fetch(`/api/admin/operators/${id}/reject`, {
+      const res = await apiFetch(`/api/admin/operators/${id}/reject`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -377,7 +412,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
   // ==================== STATIONS & ROUTES MANAGEMENT ====================
   const fetchAdminStations = async () => {
     try {
-      const res = await fetch('/api/stations');
+      const res = await apiFetch('/api/stations');
       if (res.ok) setAdminStations(await res.json());
     } catch (e) {
       console.error(e);
@@ -386,7 +421,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
 
   const fetchRouteConnections = async () => {
     try {
-      const res = await fetch('/api/routes/admin', { headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await apiFetch('/api/routes/admin', { headers: { 'Authorization': `Bearer ${token}` } });
       if (res.ok) setRouteConnections(await res.json());
     } catch (e) {
       console.error(e);
@@ -397,7 +432,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
     e.preventDefault();
     if (!newStationName.trim() || !newStationState.trim()) return;
     try {
-      const res = await fetch('/api/stations', {
+      const res = await apiFetch('/api/stations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ name: newStationName, state: newStationState })
@@ -418,7 +453,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
 
   const handleEditStation = async (id: number) => {
     try {
-      const res = await fetch(`/api/stations/${id}`, {
+      const res = await apiFetch(`/api/stations/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ name: editStationName, state: editStationState })
@@ -436,7 +471,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
   const handleDeleteStation = async (id: number) => {
     if (!window.confirm('Padamkan stesen ini?')) return;
     try {
-      const res = await fetch(`/api/stations/${id}`, {
+      const res = await apiFetch(`/api/stations/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -454,7 +489,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
     e.preventDefault();
     if (!newRouteOrigin || !newRouteDest) return;
     try {
-      const res = await fetch('/api/routes/admin', {
+      const res = await apiFetch('/api/routes/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ origin_station_id: parseInt(newRouteOrigin), destination_station_id: parseInt(newRouteDest) })
@@ -475,7 +510,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
 
   const handleEditRoute = async (id: number) => {
     try {
-      const res = await fetch(`/api/routes/admin/${id}`, {
+      const res = await apiFetch(`/api/routes/admin/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ origin_station_id: parseInt(editRouteOrigin), destination_station_id: parseInt(editRouteDest) })
@@ -493,7 +528,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
   const handleDeleteRoute = async (id: number) => {
     if (!window.confirm('Padamkan laluan ini?')) return;
     try {
-      const res = await fetch(`/api/routes/admin/${id}`, {
+      const res = await apiFetch(`/api/routes/admin/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -509,7 +544,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
   // ==================== ML MODEL CONTROLS ====================
   const fetchModelMetrics = async () => {
     try {
-      const res = await fetch('/api/admin/model', { headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await apiFetch('/api/admin/model', { headers: { 'Authorization': `Bearer ${token}` } });
       if (res.ok) setModelMetrics(await res.json());
     } catch (e) {
       console.error(e);
@@ -522,7 +557,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
     setTrainProgress(0);
 
     try {
-      const res = await fetch('/api/admin/model/retrain', {
+      const res = await apiFetch('/api/admin/model/retrain', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -540,7 +575,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
       // Poll for real progress from the Python process
       const pollInterval = setInterval(async () => {
         try {
-          const statusRes = await fetch('/api/admin/model/status', {
+          const statusRes = await apiFetch('/api/admin/model/status', {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           const status = await statusRes.json();
@@ -564,7 +599,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
           }
 
           // Training completed successfully
-          const metricsRes = await fetch('/api/admin/model', {
+          const metricsRes = await apiFetch('/api/admin/model', {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           const metrics = await metricsRes.json();
@@ -591,7 +626,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
   const handleResetModel = async () => {
     if (!window.confirm('Set semula model? Ini akan memadam semua data latihan.')) return;
     try {
-      const res = await fetch('/api/admin/model/reset', {
+      const res = await apiFetch('/api/admin/model/reset', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -612,7 +647,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
 
   const handleDownloadModel = async () => {
     try {
-      const res = await fetch('/api/admin/model/download', {
+      const res = await apiFetch('/api/admin/model/download', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -636,7 +671,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
 
   const handleDownloadPkl = async () => {
     try {
-      const res = await fetch('/api/admin/model/download-pkl', {
+      const res = await apiFetch('/api/admin/model/download-pkl', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -672,7 +707,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
     }
     setSavingPassword(true);
     try {
-      const res = await fetch('/api/user/change-password', {
+      const res = await apiFetch('/api/user/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ oldPassword: profileOldPw, newPassword: profileNewPw })
@@ -691,7 +726,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
   const handleDeleteAccount = async () => {
     setDeletingAccount(true);
     try {
-      const res = await fetch('/api/user/delete-account', {
+      const res = await apiFetch('/api/user/delete-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ password: deletePassword })
@@ -711,7 +746,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
   // ==================== MUAT NAIK SET DATA ====================
   const fetchDatasetOverview = async () => {
     try {
-      const res = await fetch('/api/admin/dataset', { headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await apiFetch('/api/admin/dataset', { headers: { 'Authorization': `Bearer ${token}` } });
       if (res.ok) setDatasetOverview(await res.json());
     } catch {}
   };
@@ -726,7 +761,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
     try {
       const formData = new FormData();
       formData.append('csv', csvFile);
-      const res = await fetch('/api/admin/dataset/upload', {
+      const res = await apiFetch('/api/admin/dataset/upload', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
@@ -745,7 +780,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
 
   const fetchDatasetPreview = async () => {
     try {
-      const res = await fetch('/api/admin/dataset/preview', { headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await apiFetch('/api/admin/dataset/preview', { headers: { 'Authorization': `Bearer ${token}` } });
       if (res.ok) setDatasetPreview(await res.json());
     } catch {}
   };
@@ -754,7 +789,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
     if (!confirm('Anda pasti mahu memadamkan set data ini? Tindakan ini tidak boleh dibatalkan.')) return;
     setClearingDataset(true);
     try {
-      const res = await fetch('/api/admin/dataset/clear', {
+      const res = await apiFetch('/api/admin/dataset/clear', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -1200,10 +1235,20 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
               </form>
 
               <div className="mt-8 border-t border-slate-100 pt-6" id="static-holiday-note">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">{'Senarai Cuti Statik'}</span>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
-                  {'Cuti diurus sebagai data statik. Tambah, ubah, atau padam cuti mengikut keperluan.'}
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">{'Selaras Cuti Kebangsaan'}</span>
+                <p className="text-[11px] text-slate-500 leading-relaxed mb-3">
+                  {'Import cuti umum kebangsaan Malaysia tahun ini daripada Nager.Date. Entri sedia ada tidak akan ditimpa, jadi suntingan anda dan cuti negeri kekal selamat.'}
                 </p>
+                <button
+                  id="btn-sync-holidays"
+                  type="button"
+                  onClick={handleSyncHolidays}
+                  disabled={syncingHolidays}
+                  className="w-full flex items-center justify-center gap-2 border border-[#c7d2fe] bg-[#e0e7ff]/40 hover:bg-[#e0e7ff] text-[#4f46e5] rounded-xl py-2 text-xs font-bold transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {syncingHolidays ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DownloadCloud className="h-3.5 w-3.5" />}
+                  {syncingHolidays ? 'Menyelaras...' : `Selaras Cuti ${new Date().getFullYear()}`}
+                </button>
               </div>
             </div>
 

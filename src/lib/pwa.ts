@@ -68,7 +68,9 @@ export async function cleanupForeignServiceWorkers(): Promise<void> {
         const isOwnWorker = (() => {
           try {
             const url = new URL(scriptUrl);
-            return url.origin === window.location.origin && url.pathname === '/sw.js';
+            if (url.origin !== window.location.origin) return false;
+            // vite-plugin-pwa emits /sw.js in builds and /dev-sw.js in dev mode.
+            return url.pathname === '/sw.js' || url.pathname === '/dev-sw.js';
           } catch {
             return false;
           }

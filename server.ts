@@ -1,4 +1,10 @@
-import 'dotenv/config';
+// `.env.local` wins over `.env` (dotenv never overwrites an already-set key).
+// Real process environment variables always win over both, which is how
+// Render/Railway/Vercel inject configuration.
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local', quiet: true });
+dotenv.config({ quiet: true });
+
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
@@ -64,7 +70,41 @@ function normalizeCsvDates(content: string): string {
 }
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
+
+// ==========================================
+// CORS
+// ------------------------------------------
+// In production the SPA is served from a different origin (Vercel) than this
+// API (Render/Railway), so the browser needs explicit permission. CORS_ORIGINS
+// is a comma-separated allowlist, e.g.
+//   CORS_ORIGINS=https://ets-rider.vercel.app,http://localhost:3000
+// Requests with no Origin header (curl, same-origin, server-to-server) pass.
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
+app.use((req: any, res: any, next: any) => {
+  const origin = (req.headers.origin || '').replace(/\/$/, '');
+
+  if (origin && (allowedOrigins.length === 0 || allowedOrigins.includes(origin))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    req.headers['access-control-request-headers'] || 'Authorization, Content-Type'
+  );
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+  res.setHeader('Access-Control-Max-Age', '86400');
+
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
 
 app.use(express.json({ limit: '500mb' }));
 app.use(express.urlencoded({ limit: '500mb', extended: true }));
@@ -291,76 +331,153 @@ app.post('/api/auth/logout', (req, res) => {
 });
 
 // ==========================================
-// GOOGLE OAUTH (scaffolded, disabled until env vars are set)
+// SUPABASE GOOGLE AUTH BRIDGE
+// ------------------------------------------
+// The browser runs the Google OAuth flow through Supabase
+// (supabase.auth.signInWithOAuth({ provider: 'google' })). Once Supabase has a
+// session, the client posts the Supabase access token here. We verify that
+// token with Supabase, find-or-create the matching row in Users, and hand back
+// the same custom session token every other endpoint already expects.
 // ==========================================
-app.get('/api/auth/google', (req, res) => {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI || `http://localhost:${process.env.PORT || 3000}/api/auth/google/callback`;
-  if (!clientId) {
-    return res.status(503).json({ error: 'Google integration is not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI.' });
-  }
-  const scope = encodeURIComponent('openid email profile https://www.googleapis.com/auth/calendar.readonly');
-  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&access_type=offline&prompt=consent`;
-  res.redirect(url);
-});
 
-app.get('/api/auth/google/callback', async (req, res) => {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI || `http://localhost:${process.env.PORT || 3000}/api/auth/google/callback`;
-  if (!clientId || !clientSecret) {
-    return res.status(503).json({ error: 'Google integration is not configured.' });
-  }
-  const code = req.query.code as string;
-  if (!code) return res.status(400).json({ error: 'Missing authorization code.' });
-  try {
-    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, grant_type: 'authorization_code' }).toString(),
+function supabaseApiKey(): string {
+  return (
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    ''
+  );
+}
+
+function buildUsernameFromEmail(email: string): string {
+  const local = (email.split('@')[0] || 'rider').toLowerCase().replace(/[^a-z0-9._-]/g, '');
+  return (local || 'rider').slice(0, 24);
+}
+
+app.post('/api/auth/supabase', async (req, res) => {
+  const supabaseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
+  const accessToken = req.body?.access_token as string | undefined;
+
+  if (!supabaseUrl || !supabaseApiKey()) {
+    return res.status(503).json({
+      error:
+        'Google sign-in is not configured on the server. Set SUPABASE_URL and SUPABASE_ANON_KEY (or SUPABASE_SERVICE_ROLE_KEY).',
     });
-    const tokenData: any = await tokenRes.json();
-    if (!tokenData.access_token) {
-      return res.status(400).json({ error: 'Failed to exchange authorization code.', details: tokenData });
+  }
+  if (!accessToken) {
+    return res.status(400).json({ error: 'Missing Supabase access token.' });
+  }
+
+  try {
+    // Verify the token against Supabase Auth and read the confirmed profile.
+    const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        apikey: supabaseApiKey(),
+      },
+    });
+
+    if (!userRes.ok) {
+      return res.status(401).json({ error: 'Supabase session is invalid or expired. Please sign in again.' });
     }
-    // Fetch Google profile email
-    let email: string | null = null;
-    try {
-      const profRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { Authorization: `Bearer ${tokenData.access_token}` } });
-      const prof: any = await profRes.json();
-      email = prof.email || null;
-    } catch { /* ignore */ }
+
+    const supabaseUser: any = await userRes.json();
+    const email: string | undefined = supabaseUser?.email;
+    const supabaseUid: string | undefined = supabaseUser?.id;
+    if (!email || !supabaseUid) {
+      return res.status(400).json({ error: 'Google account did not return an email address.' });
+    }
+
+    const metadata = supabaseUser?.user_metadata || {};
+    const fullName: string =
+      metadata.full_name || metadata.name || email.split('@')[0] || 'ETS Rider';
+    const avatarUrl: string | null = metadata.avatar_url || metadata.picture || null;
 
     const db = await getDB();
-    // Store against the currently logged-in user if a session token is present
-    const authHeader = req.headers['authorization'];
-    const sessionToken = authHeader && authHeader.split(' ')[1];
-    const sessionUser = sessionToken ? sessionStore.get(sessionToken) : null;
-    if (!sessionUser || sessionUser.role === 'guest') {
-      return res.status(401).json({ error: 'You must be logged in to connect a Google account.' });
+
+    // 1. Match on the Supabase user id, 2. fall back to the email address, so a
+    //    rider who registered with the same email keeps one account.
+    let user = await db.get('SELECT * FROM Users WHERE supabase_uid = ?', [supabaseUid]);
+    if (!user) {
+      user = await db.get('SELECT * FROM Users WHERE LOWER(email) = ?', [email.toLowerCase()]);
     }
-    const expiry = tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null;
-    const scopes = tokenData.scope || '';
-    try {
+
+    if (user) {
       await db.run(
-        `INSERT INTO GoogleAccounts (user_id, provider, google_email, access_token, refresh_token, token_expiry, scopes)
-         VALUES (?, 'google', ?, ?, ?, ?, ?)
-         ON CONFLICT (user_id, provider) DO UPDATE SET
-           google_email = EXCLUDED.google_email,
-           access_token = EXCLUDED.access_token,
-           refresh_token = COALESCE(EXCLUDED.refresh_token, GoogleAccounts.refresh_token),
-           token_expiry = EXCLUDED.token_expiry,
-           scopes = EXCLUDED.scopes,
-           updated_at = CURRENT_TIMESTAMP`,
-        [sessionUser.id, email, tokenData.access_token, tokenData.refresh_token || null, expiry, scopes]
+        `UPDATE Users
+            SET supabase_uid = ?, auth_provider = COALESCE(auth_provider, 'google'),
+                email = COALESCE(email, ?), avatar_url = COALESCE(?, avatar_url),
+                full_name = COALESCE(NULLIF(full_name, ''), ?)
+          WHERE id = ?`,
+        [supabaseUid, email, avatarUrl, fullName, user.id]
       );
-    } catch (e) {
-      console.warn('GoogleAccounts upsert failed (table may not exist yet):', (e as any)?.message);
+    } else {
+      // Google accounts never use a password, but Users.password_hash is NOT NULL
+      // and other code paths still compare against it, so store an unusable hash.
+      const unusableHash = await bcrypt.hash(randomBytes(32).toString('hex'), 10);
+
+      // Usernames are unique; append a short suffix until the handle is free.
+      const base = buildUsernameFromEmail(email);
+      let username = base;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const clash = await db.get('SELECT id FROM Users WHERE username = ?', [username]);
+        if (!clash) break;
+        username = `${base}${Math.floor(1000 + Math.random() * 9000)}`;
+      }
+
+      const result = await db.run(
+        `INSERT INTO Users (full_name, username, password_hash, role, status, email, supabase_uid, auth_provider, avatar_url)
+         VALUES (?, ?, ?, 'passenger', 'active', ?, ?, 'google', ?)`,
+        [fullName, username, unusableHash, email, supabaseUid, avatarUrl]
+      );
+      user = await db.get('SELECT * FROM Users WHERE id = ?', [result.lastID]);
     }
-    res.redirect('/?google=connected');
+
+    if (!user) {
+      return res.status(500).json({ error: 'Could not resolve a local account for this Google login.' });
+    }
+
+    if (user.role === 'operator' && user.status === 'pending') {
+      return res.status(403).json({ error: 'Your operator account is pending administrator approval.' });
+    }
+    if (user.role === 'operator' && user.status === 'rejected') {
+      return res.status(403).json({ error: 'Your registration was rejected. Please contact an administrator.' });
+    }
+    if (user.status === 'suspended') {
+      return res.status(403).json({ error: 'Your account has been suspended by an administrator.' });
+    }
+
+    const sessionToken = randomBytes(32).toString('hex');
+    const sessionUser = {
+      id: user.id,
+      full_name: user.full_name,
+      username: user.username,
+      role: user.role,
+      status: user.status,
+    };
+    sessionStore.set(sessionToken, sessionUser);
+
+    res.json({
+      token: sessionToken,
+      user: {
+        ...sessionUser,
+        email: user.email || email,
+        avatar_url: user.avatar_url || avatarUrl,
+        language: user.language || 'en',
+        tutorial_completed: !!user.tutorial_completed,
+        tutorial_completed_at: user.tutorial_completed_at || null,
+      },
+    });
   } catch (error: any) {
-    console.error('Google OAuth callback error:', error);
-    res.status(500).json({ error: 'Google OAuth callback failed.' });
+    console.error('Supabase auth bridge error:', error);
+    const message = String(error?.message || '');
+    if (/column .*(supabase_uid|auth_provider|avatar_url|email)|does not exist/i.test(message)) {
+      return res.status(500).json({
+        error:
+          'Database migration missing. Run supabase_migration_phase5.sql in the Supabase SQL editor, then try again.',
+      });
+    }
+    res.status(500).json({ error: 'Google sign-in failed. Please try again.' });
   }
 });
 
@@ -887,14 +1004,22 @@ app.get('/api/holidays', async (req, res) => {
     const now = new Date();
     const curYear = now.getFullYear();
     const curMonth = now.getMonth();
+
+    // Optional state filter: national holidays ('ALL') plus anything recorded
+    // for that state. Nager.Date has no state-level data, so state holidays are
+    // whatever the admin entered manually.
+    const stateFilter = typeof req.query.state === 'string' ? req.query.state.trim() : '';
+    const stateClause = stateFilter ? "AND (state = 'ALL' OR state = ?)" : '';
+    const stateParams = stateFilter ? [stateFilter] : [];
+
     if (req.query.all === 'true') {
       const list = await db.all(`SELECT * FROM Holidays ORDER BY ${HOLIDAY_ISO_DATE_SQL} ASC`);
       res.json(list);
     } else if (req.query.scope === 'year') {
       const list = await db.all(
-        `SELECT * FROM Holidays WHERE country = 'Malaysia' AND ${holidayYearWhere(curYear)}
+        `SELECT * FROM Holidays WHERE country = 'Malaysia' AND ${holidayYearWhere(curYear)} ${stateClause}
          ORDER BY ${HOLIDAY_ISO_DATE_SQL} ASC`,
-        []
+        stateParams
       );
       res.json(list);
     } else {
@@ -903,11 +1028,11 @@ app.get('/api/holidays', async (req, res) => {
       const startStr = startDate.toISOString().split('T')[0];
       const endStr = endDate.toISOString().split('T')[0];
       const list = await db.all(
-        `SELECT * FROM Holidays WHERE country = 'Malaysia' AND ${holidayYearWhere(curYear)}
+        `SELECT * FROM Holidays WHERE country = 'Malaysia' AND ${holidayYearWhere(curYear)} ${stateClause}
          AND ${HOLIDAY_ISO_DATE_SQL} >= ?
          AND ${HOLIDAY_ISO_DATE_SQL} <= ?
          ORDER BY ${HOLIDAY_ISO_DATE_SQL} ASC`,
-        [startStr, endStr]
+        [...stateParams, startStr, endStr]
       );
       res.json(list);
     }
@@ -916,20 +1041,41 @@ app.get('/api/holidays', async (req, res) => {
   }
 });
 
-// Sync Malaysian public holidays from Nager.Date (free, no API key required)
+// Sync Malaysian public holidays from Nager.Date (free, no API key required).
+// Nager.Date only publishes NATIONAL holidays; state-level holidays stay a
+// manual admin entry (GET /api/holidays?state=Selangor merges both).
+const NAGER_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const nagerCache = new Map<string, { at: number; holidays: any[] }>();
+
+async function fetchNagerHolidays(year: number): Promise<any[]> {
+  const cached = nagerCache.get(String(year));
+  if (cached && Date.now() - cached.at < NAGER_CACHE_TTL_MS) return cached.holidays;
+
+  const r = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/MY`);
+  if (!r.ok) throw new Error(`Nager.Date responded ${r.status}`);
+  const holidays: any[] = await r.json();
+  nagerCache.set(String(year), { at: Date.now(), holidays });
+  return holidays;
+}
+
 app.post('/api/admin/holidays/sync', authenticateToken, async (req: any, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Access denied.' });
   const year = parseInt(req.body?.year || new Date().getFullYear(), 10);
   if (isNaN(year)) return res.status(400).json({ error: 'Invalid year.' });
   try {
-    const r = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/MY`);
-    if (!r.ok) return res.status(502).json({ error: 'Holiday source unavailable.' });
-    const holidays: any[] = await r.json();
+    const holidays = await fetchNagerHolidays(year);
     const db = await getDB();
     let inserted = 0;
+    let skipped = 0;
     for (const h of holidays) {
       const uid = `nager:${year}:${h.date}:${h.name}`;
       try {
+        const existing = await db.get('SELECT id FROM Holidays WHERE external_uid = ?', [uid]);
+        if (existing) {
+          // Already synced; leave any admin edits on that row untouched.
+          skipped++;
+          continue;
+        }
         await db.run(
           `INSERT INTO Holidays (name, date, country, state, source, external_uid)
            VALUES (?, ?, 'Malaysia', 'ALL', 'nager', ?)
@@ -938,13 +1084,14 @@ app.post('/api/admin/holidays/sync', authenticateToken, async (req: any, res) =>
         );
         inserted++;
       } catch (e) {
-        // conflict or missing column - ignore
+        // Missing external_uid column (older schema) or duplicate - skip quietly.
+        skipped++;
       }
     }
-    res.json({ success: true, year, fetched: holidays.length, inserted });
+    res.json({ success: true, year, fetched: holidays.length, inserted, skipped });
   } catch (error: any) {
     console.error('Holiday sync error:', error);
-    res.status(500).json({ error: 'Failed to sync holidays.' });
+    res.status(500).json({ error: 'Failed to sync holidays. Existing holidays were left unchanged.' });
   }
 });
 
@@ -1952,7 +2099,7 @@ app.post('/api/ai/assistant', async (req, res) => {
       return res.json({ reply: reply, source: 'rule-based', configured: false });
     }
 
-    const systemPrompt = 'You are a helpful assistant for the ETS RiderPredict public transport system (Malaysia ETS trains).\nYou help users find destinations, nearby stations, and routes.\nFACTUAL DATA (use only this; do not invent stations, routes, distances, or times):\nStations: ' + stationNames + '\nDestinations on file: ' + (destNames || 'none') + '\nRules:\n- If a station/destination is not in the data, say it is unavailable; do not invent.\n- Ask a follow-up question when origin or destination is missing.\n- Keep answers concise and clear.\n- Never claim a prediction is guaranteed.';
+    const systemPrompt = 'You are a helpful assistant for the ETS Rider Predict System public transport system (Malaysia ETS trains).\nYou help users find destinations, nearby stations, and routes.\nFACTUAL DATA (use only this; do not invent stations, routes, distances, or times):\nStations: ' + stationNames + '\nDestinations on file: ' + (destNames || 'none') + '\nRules:\n- If a station/destination is not in the data, say it is unavailable; do not invent.\n- Ask a follow-up question when origin or destination is missing.\n- Keep answers concise and clear.\n- Never claim a prediction is guaranteed.';
 
     const geminiRes = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + encodeURIComponent(apiKey), {
       method: 'POST',

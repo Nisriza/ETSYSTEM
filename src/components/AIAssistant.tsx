@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { MessageCircle, Send, X, Loader2 } from 'lucide-react';
+import { apiFetch } from '../lib/api.ts';
 
 interface Msg { role: 'user' | 'assistant'; text: string; }
 
@@ -16,7 +17,7 @@ export default function AIAssistant({ token }: { token: string | null }) {
     setMsgs((m) => [...m, { role: 'user', text }]);
     setLoading(true);
     try {
-      const res = await fetch('/api/ai/assistant', {
+      const res = await apiFetch('/api/ai/assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ message: text }),

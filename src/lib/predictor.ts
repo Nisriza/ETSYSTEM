@@ -217,7 +217,7 @@ export function getTrainingReport(): string {
   const metrics = getModelMetrics();
   const lines = [
     '===========================================',
-    '   ETS RiderPredict - Training Report',
+    '   ETS Rider Predict System - Training Report',
     '===========================================',
     '',
     `Date Trained:     ${metrics.trainedAt ? new Date(metrics.trainedAt).toLocaleString() : 'N/A'}`,

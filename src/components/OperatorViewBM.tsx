@@ -8,6 +8,7 @@ import {
   Calendar, Clock, AlertCircle, Loader2, 
   User as UserIcon, LogOut, Sparkles, AlertTriangle, CalendarDays, Download
 } from 'lucide-react';
+import { apiFetch } from '../lib/api.ts';
 
 interface OperatorViewProps {
   user: User;
@@ -82,7 +83,7 @@ export default function OperatorViewBM({ user, token }: OperatorViewProps) {
     setLoadingAnalytics(true);
     try {
       const d = new Date();
-      const res = await fetch(`/api/operator/analytics?month=${d.getMonth() + 1}&year=${d.getFullYear()}`, {
+      const res = await apiFetch(`/api/operator/analytics?month=${d.getMonth() + 1}&year=${d.getFullYear()}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) setAnalyticsData(await res.json());
@@ -95,7 +96,7 @@ export default function OperatorViewBM({ user, token }: OperatorViewProps) {
 
   const fetchStations = async () => {
     try {
-      const res = await fetch('/api/stations');
+      const res = await apiFetch('/api/stations');
       if (res.ok) setStations(await res.json());
     } catch (e) {
       console.error(e);
@@ -104,7 +105,7 @@ export default function OperatorViewBM({ user, token }: OperatorViewProps) {
 
   const fetchHolidays = async () => {
     try {
-      const res = await fetch('/api/holidays?scope=year');
+      const res = await apiFetch('/api/holidays?scope=year');
       if (res.ok) {
         const all: Holiday[] = await res.json();
         const today = new Date();
@@ -119,7 +120,7 @@ export default function OperatorViewBM({ user, token }: OperatorViewProps) {
 
   const fetchAvailableYears = async () => {
     try {
-      const res = await fetch('/api/operator/report-months', { headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await apiFetch('/api/operator/report-months', { headers: { 'Authorization': `Bearer ${token}` } });
       if (res.ok) {
         const data: { month: number; year: number }[] = await res.json();
         const years = [...new Set(data.map((r) => r.year))].sort((a, b) => b - a);
@@ -133,7 +134,7 @@ export default function OperatorViewBM({ user, token }: OperatorViewProps) {
     setLoadingReport(true);
     setReportError(null);
     try {
-      const res = await fetch(`/api/operator/report-csv?month=${selMonth}&year=${selYear}`, {
+      const res = await apiFetch(`/api/operator/report-csv?month=${selMonth}&year=${selYear}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -170,7 +171,7 @@ export default function OperatorViewBM({ user, token }: OperatorViewProps) {
     if (originId === destId) { setRouteStatus('unavailable'); return; }
     setRouteStatus('checking');
     try {
-      const res = await fetch(`/api/routes/check?origin_id=${originId}&destination_id=${destId}`);
+      const res = await apiFetch(`/api/routes/check?origin_id=${originId}&destination_id=${destId}`);
       const data = await res.json();
       if (data.available) {
         setRouteStatus('available');
@@ -196,7 +197,7 @@ export default function OperatorViewBM({ user, token }: OperatorViewProps) {
     const originName = stations.find(s => s.id === parseInt(originId))?.name || '';
     const destName = stations.find(s => s.id === parseInt(destId))?.name || '';
     try {
-      const res = await fetch('/api/predict', {
+      const res = await apiFetch('/api/predict', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ origin: originName, destination: destName, date: travelDate, time: travelTime + ":00" })
@@ -293,7 +294,7 @@ export default function OperatorViewBM({ user, token }: OperatorViewProps) {
     }
     setChangingPass(true);
     try {
-      const res = await fetch('/api/user/change-password', {
+      const res = await apiFetch('/api/user/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ oldPassword, newPassword })
@@ -315,7 +316,7 @@ export default function OperatorViewBM({ user, token }: OperatorViewProps) {
     if (!deletePassword) return;
     setDeletingAccount(true);
     try {
-      const res = await fetch('/api/user/delete-account', {
+      const res = await apiFetch('/api/user/delete-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ password: deletePassword })

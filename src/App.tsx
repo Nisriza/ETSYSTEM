@@ -13,23 +13,61 @@ import TutorialOverlay from './components/TutorialOverlay.tsx';
 import InstallAppButton from './components/InstallAppButton.tsx';
 import AIAssistant from './components/AIAssistant.tsx';
 import { getTutorialStepsForRole, markTutorialCompleted } from './lib/tutorial.ts';
+import { apiFetch } from './lib/api.ts';
+import { bridgeSupabaseSession } from './lib/supabaseAuth.ts';
+import { clearOAuthParamsFromUrl, readOAuthErrorFromUrl, signOutOfSupabase } from './lib/supabaseClient.ts';
 
 function AppContent() {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [tutorialOpen, setTutorialOpen] = useState(false);
+  // Shown on the login card when Google sign-in fails after the redirect back.
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
   const lang = window.location.pathname.startsWith('/bm') ? 'bm' : 'en';
   const isBM = lang === 'bm';
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('user_token');
-    if (storedToken) {
-      verifySession(storedToken);
-    } else {
-      setInitializing(false);
-    }
+    let cancelled = false;
+
+    const boot = async () => {
+      const storedToken = localStorage.getItem('user_token');
+      if (storedToken) {
+        const restored = await verifySession(storedToken);
+        if (cancelled) return;
+        if (restored) {
+          setInitializing(false);
+          return;
+        }
+      }
+
+      // No usable app session: this may be the redirect back from Google.
+      const oauthError = readOAuthErrorFromUrl();
+      if (oauthError) {
+        if (!cancelled) setAuthNotice(oauthError);
+        clearOAuthParamsFromUrl();
+      }
+
+      try {
+        const bridged = await bridgeSupabaseSession();
+        if (!cancelled && bridged) {
+          handleLoginSuccess(bridged.user, bridged.token);
+          clearOAuthParamsFromUrl();
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setAuthNotice(e?.message || 'Google sign-in failed. Please try again.');
+          clearOAuthParamsFromUrl();
+        }
+      } finally {
+        if (!cancelled) setInitializing(false);
+      }
+    };
+
+    boot();
+    return () => { cancelled = true; };
   }, []);
+
 
   useEffect(() => {
     if (!user || !token) { setTutorialOpen(false); return; }
@@ -55,35 +93,36 @@ function AppContent() {
     }
   };
 
-  const verifySession = async (sessionToken: string) => {
+  const verifySession = async (sessionToken: string): Promise<boolean> => {
     try {
-      const res = await fetch('/api/auth/me', {
+      const res = await apiFetch('/api/auth/me', {
         headers: { 'Authorization': `Bearer ${sessionToken}` }
       });
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
         setToken(sessionToken);
-      } else {
-        localStorage.removeItem('user_token');
+        return true;
       }
+      localStorage.removeItem('user_token');
+      return false;
     } catch (e) {
       console.error('Session verify failed:', e);
-    } finally {
-      setInitializing(false);
+      return false;
     }
   };
 
   const handleLoginSuccess = (loggedInUser: User, sessionToken: string) => {
     setUser(loggedInUser);
     setToken(sessionToken);
+    setAuthNotice(null);
     localStorage.setItem('user_token', sessionToken);
   };
 
   const handleLogout = async () => {
     if (token) {
       try {
-        await fetch('/api/auth/logout', {
+        await apiFetch('/api/auth/logout', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -91,6 +130,8 @@ function AppContent() {
         console.error('Logout request failed:', err);
       }
     }
+    // Also end the Supabase session so the next Google sign-in re-prompts.
+    await signOutOfSupabase();
     setUser(null);
     setToken(null);
     localStorage.removeItem('user_token');
@@ -106,7 +147,11 @@ function AppContent() {
   }
 
   if (!user || !token) {
-    return isBM ? <LoginViewBM onLoginSuccess={handleLoginSuccess} /> : <LoginView onLoginSuccess={handleLoginSuccess} />;
+    return isBM ? (
+      <LoginViewBM onLoginSuccess={handleLoginSuccess} initialError={authNotice} redirectPath="/bm" />
+    ) : (
+      <LoginView onLoginSuccess={handleLoginSuccess} initialError={authNotice} redirectPath="/" />
+    );
   }
 
   return (
@@ -119,7 +164,7 @@ function AppContent() {
             </div>
             <div>
               <h1 className="font-display font-extrabold text-[#111827] text-base md:text-lg tracking-tight leading-none flex items-center gap-1.5">
-                {'ETS RiderPredict'}
+                {'ETS Rider Predict System'}
                 <span className="text-[10px] font-bold bg-[#e0e7ff] text-[#4f46e5] px-1.5 py-0.5 rounded-full uppercase tracking-wider">{isBM ? 'PRO' : 'PRO'}</span>
               </h1>
               <p className="text-[10.5px] text-[#64748b] font-medium mt-1">

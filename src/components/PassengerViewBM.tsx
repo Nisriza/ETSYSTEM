@@ -5,6 +5,7 @@ import {
    Trash2, Edit, CheckCircle2, AlertTriangle, AlertCircle, Sparkles, Star,
   ArrowRight, User as UserIcon, LogOut, ChevronRight, BookmarkPlus, HelpCircle
 } from 'lucide-react';
+import { apiFetch } from '../lib/api.ts';
 
 interface PassengerViewProps {
   user: User;
@@ -76,7 +77,7 @@ export default function PassengerViewBM({ user, token }: PassengerViewProps) {
 
   const fetchPopularRoutes = async () => {
     try {
-      const res = await fetch('/api/routes/popular');
+      const res = await apiFetch('/api/routes/popular');
       if (res.ok) setPopularRoutes(await res.json());
     } catch (e) { console.error(e); }
   };
@@ -95,7 +96,7 @@ export default function PassengerViewBM({ user, token }: PassengerViewProps) {
     if (!deletePassword) return;
     setDeletingAccount(true);
     try {
-      const res = await fetch('/api/user/delete-account', {
+      const res = await apiFetch('/api/user/delete-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ password: deletePassword })
@@ -138,7 +139,7 @@ export default function PassengerViewBM({ user, token }: PassengerViewProps) {
 
     setChangingPass(true);
     try {
-      const res = await fetch('/api/user/change-password', {
+      const res = await apiFetch('/api/user/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -166,7 +167,7 @@ export default function PassengerViewBM({ user, token }: PassengerViewProps) {
 
   const fetchStations = async () => {
     try {
-      const res = await fetch('/api/stations');
+      const res = await apiFetch('/api/stations');
       if (res.ok) setStations(await res.json());
     } catch (e) {
       console.error(e);
@@ -176,7 +177,7 @@ export default function PassengerViewBM({ user, token }: PassengerViewProps) {
   const fetchSavedTrips = async () => {
     if (isGuest) return;
     try {
-      const res = await fetch('/api/saved-trips', {
+      const res = await apiFetch('/api/saved-trips', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) setSavedTrips(await res.json());
@@ -188,7 +189,7 @@ export default function PassengerViewBM({ user, token }: PassengerViewProps) {
   const fetchFeedbackHistory = async () => {
     if (isGuest) return;
     try {
-      const res = await fetch('/api/feedback/history', {
+      const res = await apiFetch('/api/feedback/history', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) setFeedbackHistory(await res.json());
@@ -200,10 +201,10 @@ export default function PassengerViewBM({ user, token }: PassengerViewProps) {
   const fetchHolidaysAndRecs = async () => {
     setLoadingRecs(true);
     try {
-      const resHolidays = await fetch('/api/holidays?scope=year');
+      const resHolidays = await apiFetch('/api/holidays?scope=year');
       if (resHolidays.ok) setHolidays(await resHolidays.json());
 
-      const resRecs = await fetch('/api/recommendations', {
+      const resRecs = await apiFetch('/api/recommendations', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (resRecs.ok) setRecommendations(await resRecs.json());
@@ -216,7 +217,7 @@ export default function PassengerViewBM({ user, token }: PassengerViewProps) {
 
   const fetchUpcomingHolidays = async () => {
     try {
-      const res = await fetch('/api/holidays?scope=year');
+      const res = await apiFetch('/api/holidays?scope=year');
       if (res.ok) {
         const all: Holiday[] = await res.json();
         const today = new Date();
@@ -239,7 +240,7 @@ export default function PassengerViewBM({ user, token }: PassengerViewProps) {
 
     setRouteStatus('checking');
     try {
-      const res = await fetch(`/api/routes/check?origin_id=${originId}&destination_id=${destId}`);
+      const res = await apiFetch(`/api/routes/check?origin_id=${originId}&destination_id=${destId}`);
       const data = await res.json();
       if (data.available) {
         setRouteStatus('available');
@@ -269,7 +270,7 @@ export default function PassengerViewBM({ user, token }: PassengerViewProps) {
     const destName = stations.find(s => s.id === parseInt(destId))?.name || '';
 
     try {
-      const res = await fetch('/api/predict', {
+      const res = await apiFetch('/api/predict', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -298,7 +299,7 @@ export default function PassengerViewBM({ user, token }: PassengerViewProps) {
     if (!predictionResult) return;
     setSavingTrip(true);
     try {
-      const res = await fetch('/api/saved-trips', {
+      const res = await apiFetch('/api/saved-trips', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -347,7 +348,7 @@ export default function PassengerViewBM({ user, token }: PassengerViewProps) {
   const deleteTrip = async (id: number) => {
     if (!window.confirm('Adakah anda pasti mahu memadam perjalanan yang disimpan ini?')) return;
     try {
-      const res = await fetch(`/api/saved-trips/${id}`, {
+      const res = await apiFetch(`/api/saved-trips/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -373,7 +374,7 @@ export default function PassengerViewBM({ user, token }: PassengerViewProps) {
       const method = editingFbId ? 'PUT' : 'POST';
       const endpoint = editingFbId ? `/api/feedback/${editingFbId}` : '/api/feedback';
 
-      const res = await fetch(endpoint, {
+      const res = await apiFetch(endpoint, {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -430,7 +431,7 @@ export default function PassengerViewBM({ user, token }: PassengerViewProps) {
   const deleteFeedback = async (id: number) => {
     if (!window.confirm('Padam entri maklum balas ini?')) return;
     try {
-      const res = await fetch(`/api/feedback/${id}`, {
+      const res = await apiFetch(`/api/feedback/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -448,7 +449,7 @@ export default function PassengerViewBM({ user, token }: PassengerViewProps) {
     const station = stations.find(s => s.name === originName);
     if (!station) { setConnectedDestinations([]); return; }
     try {
-      const res = await fetch(`/api/routes/from/${station.id}`);
+      const res = await apiFetch(`/api/routes/from/${station.id}`);
       if (res.ok) setConnectedDestinations(await res.json());
     } catch (e) {
       console.error(e);

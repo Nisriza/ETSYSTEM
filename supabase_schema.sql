@@ -1,5 +1,5 @@
 -- ==========================================================
--- ETS RiderPredict - Complete Supabase Schema & Seed Data
+-- ETS Rider Predict System - Complete Supabase Schema & Seed Data
 -- Run this entire script in Supabase SQL Editor
 -- ==========================================================
 
