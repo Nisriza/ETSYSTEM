@@ -131,9 +131,9 @@ Nothing else in the app changed: every protected route still uses the existing `
    - Site URL: `https://<your-vercel-app>.vercel.app`
    - Redirect URLs: `http://localhost:3000`, `http://localhost:3000/bm`, `https://<your-vercel-app>.vercel.app`, `https://<your-vercel-app>.vercel.app/bm`
 3. Run `supabase_migration_phase5.sql` (adds `Users.email`, `supabase_uid`, `auth_provider`, `avatar_url`).
-4. Copy **Project URL** and the **anon** key into `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`; copy the **service_role** key into `SUPABASE_SERVICE_ROLE_KEY` on the API host only.
+4. Copy **Project URL** and the **anon** key into `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` on Vercel and/or `SUPABASE_URL` / `SUPABASE_ANON_KEY` on the API host; copy the **service_role** key into `SUPABASE_SERVICE_ROLE_KEY` on the API host only.
 
-The Google button is hidden in production when the two `VITE_` values are missing, and shows a setup hint in development.
+The button is rendered on **both** login screens (`/` and `/bm`). If the `VITE_` values were not present when Vercel built the SPA, the browser asks the API host for the public URL/anon key via `GET /api/auth/config`, so Google sign-in still works instead of disappearing from one build. Only the anon key is ever returned — never the service-role key.
 
 ---
 
@@ -164,6 +164,7 @@ Endpoints:
 - `vite-plugin-pwa` generates `dist/sw.js` and `dist/manifest.webmanifest` at build time from `vite.config.ts`.
 - Icons are produced by `node scripts/generate-icons.cjs` into `public/icons/` (192, 512, maskable 512, Apple touch, favicon).
 - On boot, `cleanupForeignServiceWorkers()` in `src/lib/pwa.ts` unregisters any service worker that is not ours and deletes caches that are not Workbox/`ets-` prefixed, so a stale worker from another project can't serve an old shell.
+- `src/main.tsx` registers the worker itself with a versioned URL (`/sw.js?v=3`) and `updateViaCache: 'none'`, checks for updates hourly, and reloads once when a new worker takes control. This also replaces the old hand-written `/sw.js`, which could keep serving a cached `/` (English) shell while `/bm` loaded the new build.
 - Chrome shows the install prompt on `https://` or `localhost` only. To test the production behaviour:
   ```bash
   npm run build
@@ -197,7 +198,7 @@ VITE_SUPABASE_URL=https://<project-ref>.supabase.co
 VITE_SUPABASE_ANON_KEY=<anon key>
 ```
 
-Then redeploy (Vite bakes these in at build time).
+Then redeploy (Vite bakes these in at build time). The two `VITE_SUPABASE_*` values are optional: without them the SPA reads the public Supabase URL/anon key from `GET /api/auth/config` on the API host, so Google sign-in keeps working in both languages. Google OAuth returns to the language the user started from (`/` or `/bm`), so both URLs must be allowlisted in Supabase.
 
 ---
 
@@ -241,7 +242,8 @@ vercel.json                   SPA hosting config for the Vercel frontend
 | Symptom | Fix |
 |---|---|
 | `Supabase is not configured` | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` missing from `.env.local` |
-| Google button missing in production | `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` not set on Vercel, or the app was not rebuilt |
+| Google button missing in production | Set `SUPABASE_URL` + `SUPABASE_ANON_KEY` on the API host, or `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` on Vercel (then rebuild) |
+| Google button appears only in one language / one page shows an old app | A stale PWA worker is serving an old cached `/` shell. Reload once (the new worker replaces itself), or clear site data. The versioned SW registration in `src/main.tsx` prevents it recurring |
 | `Database migration missing` on Google login | Run `supabase_migration_phase5.sql` |
 | Holidays list empty | Admin → Holidays → **Sync … Holidays**, or check that the `Holidays` table has rows |
 | `redirect_uri_mismatch` from Google | The Google client's redirect URI must be `https://<ref>.supabase.co/auth/v1/callback` |

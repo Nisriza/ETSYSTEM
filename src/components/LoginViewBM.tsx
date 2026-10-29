@@ -61,12 +61,12 @@ export default function LoginViewBM({ onLoginSuccess, initialError = null, redir
     setSuccessMsg(null);
 
     if (!username.trim() || !password.trim()) {
-      setErrorMsg('Username and password are required.');
+      setErrorMsg('Nama pengguna dan kata laluan diperlukan.');
       return;
     }
 
     if (isRegister && !fullName.trim()) {
-      setErrorMsg('Please specify your Full Name.');
+      setErrorMsg('Sila isi Nama Penuh anda.');
       return;
     }
 
@@ -88,7 +88,7 @@ export default function LoginViewBM({ onLoginSuccess, initialError = null, redir
         const data = await response.json();
 
         if (!response.ok) {
-          setErrorMsg(data.error || 'Failed to complete registration.');
+          setErrorMsg(data.error || 'Pendaftaran gagal dilengkapkan.');
           setLoading(false);
           return;
         }
@@ -122,14 +122,14 @@ export default function LoginViewBM({ onLoginSuccess, initialError = null, redir
           body: JSON.stringify({
             username: username.toLowerCase().trim(),
             password,
-            language: 'en'
+            language: 'bm'
           })
         });
 
         const data = await response.json();
 
         if (!response.ok) {
-          setErrorMsg(data.error || 'Invalid credentials or user suspended.');
+          setErrorMsg(data.error || 'Kelayakan tidak sah atau akaun digantung.');
           setLoading(false);
           return;
         }
@@ -138,7 +138,7 @@ export default function LoginViewBM({ onLoginSuccess, initialError = null, redir
       }
     } catch (err) {
       console.error('Submit handling error:', err);
-      setErrorMsg('Network error. Check connection or restart server.');
+      setErrorMsg('Ralat rangkaian. Sila semak sambungan atau mulakan semula pelayan.');
     } finally {
       setLoading(false);
     }
@@ -150,12 +150,12 @@ export default function LoginViewBM({ onLoginSuccess, initialError = null, redir
     setSuccessMsg(null);
 
     if (!forgotFullname.trim() || !forgotUsername.trim() || !forgotNewPassword.trim()) {
-      setErrorMsg('Please fill in all fields.');
+      setErrorMsg('Sila isi semua medan.');
       return;
     }
 
     if (forgotNewPassword !== forgotConfirmPassword) {
-      setErrorMsg('Passwords do not match.');
+      setErrorMsg('Kata laluan tidak sepadan.');
       return;
     }
 
@@ -172,17 +172,17 @@ export default function LoginViewBM({ onLoginSuccess, initialError = null, redir
       });
       const data = await res.json();
       if (res.ok) {
-        setSuccessMsg(data.message || 'Password reset successfully!');
+        setSuccessMsg(data.message || 'Kata laluan berjaya diset semula!');
         setForgotFullname('');
         setForgotUsername('');
         setForgotNewPassword('');
         setForgotConfirmPassword('');
         setIsForgot(false);
       } else {
-        setErrorMsg(data.error || 'Failed to reset password.');
+        setErrorMsg(data.error || 'Gagal menyet semula kata laluan.');
       }
     } catch {
-      setErrorMsg('Network error. Please try again.');
+      setErrorMsg('Ralat rangkaian. Sila cuba lagi.');
     } finally {
       setLoading(false);
     }
@@ -226,6 +226,7 @@ export default function LoginViewBM({ onLoginSuccess, initialError = null, redir
             <GoogleSignInButton
               label="Log masuk dengan Google"
               loadingLabel="Mengalih ke Google..."
+              unavailableMessage="Log masuk Google belum dikonfigurasikan. Tetapkan SUPABASE_URL dan SUPABASE_ANON_KEY pada hos API, atau VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di Vercel."
               redirectPath={redirectPath}
               disabled={loading}
               onError={(message) => setErrorMsg(message)}

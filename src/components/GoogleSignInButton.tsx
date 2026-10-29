@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { isSupabaseAuthConfigured, signInWithGoogle } from '../lib/supabaseClient.ts';
+import { signInWithGoogle } from '../lib/supabaseClient.ts';
 
 interface GoogleSignInButtonProps {
   /** Localised label, e.g. "Sign in with Google". */
@@ -9,6 +9,8 @@ interface GoogleSignInButtonProps {
   redirectPath?: string;
   /** Localised "please wait" label. */
   loadingLabel?: string;
+  /** Localised message shown when the server has no Supabase credentials. */
+  unavailableMessage?: string;
   disabled?: boolean;
   onError?: (message: string) => void;
 }
@@ -39,6 +41,12 @@ function GoogleGlyph() {
 /**
  * Starts the Supabase Google OAuth redirect.
  *
+ * The button deliberately never hides itself: it renders on both the English
+ * and Malay login screens, and whether Google is configured is resolved when
+ * the user clicks (build-time env first, then the API host). That prevents a
+ * missing Vercel `VITE_*` variable from making the feature appear only in one
+ * language/build.
+ *
  * The actual "logged in" hand-off happens on app boot (see `bridgeSupabaseSession`
  * in src/lib/supabaseAuth.ts), because the browser leaves the page during the
  * redirect and comes back with the Supabase session already in the URL.
@@ -47,22 +55,22 @@ export default function GoogleSignInButton({
   label,
   redirectPath = '/',
   loadingLabel = 'Redirecting to Google...',
+  unavailableMessage = 'Google sign-in is not configured yet. Add SUPABASE_URL and SUPABASE_ANON_KEY on the API host (or VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY on Vercel).',
   disabled = false,
   onError,
 }: GoogleSignInButtonProps) {
   const [redirecting, setRedirecting] = useState(false);
-  const configured = isSupabaseAuthConfigured;
-
-  // Hide entirely in production when the keys are missing so no dead button
-  // ships; surface the reason during local development.
-  if (!configured && !import.meta.env.DEV) return null;
 
   const handleClick = async () => {
     setRedirecting(true);
     const result = await signInWithGoogle(redirectPath);
     if (!result.ok) {
       setRedirecting(false);
-      onError?.(result.error || 'Google sign-in failed. Please try again.');
+      onError?.(
+        result.code === 'not_configured'
+          ? unavailableMessage
+          : result.error || 'Google sign-in failed. Please try again.',
+      );
     }
   };
 
@@ -72,19 +80,12 @@ export default function GoogleSignInButton({
         id="btn-google-signin"
         type="button"
         onClick={handleClick}
-        disabled={disabled || redirecting || !configured}
+        disabled={disabled || redirecting}
         className="w-full flex items-center justify-center gap-2.5 border border-[#e2e8f0] bg-white hover:bg-slate-50 text-[#1e293b] py-2.5 rounded-xl text-xs font-bold transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {redirecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleGlyph />}
         {redirecting ? loadingLabel : label}
       </button>
-
-      {!configured && (
-        <p className="text-[10.5px] text-amber-600 mt-1.5 leading-relaxed">
-          Google sign-in is disabled: set <code>VITE_SUPABASE_URL</code> and{' '}
-          <code>VITE_SUPABASE_ANON_KEY</code> in <code>.env.local</code>, then restart the dev server.
-        </p>
-      )}
     </div>
   );
 }

@@ -6,33 +6,92 @@
  * the Google OAuth flow with Supabase, then `bridgeSupabaseSession()` trades the
  * Supabase access token for the app's existing `user_token`.
  *
- * Required env vars (see .env.example):
- *   VITE_SUPABASE_URL
- *   VITE_SUPABASE_ANON_KEY
+ * Configuration is resolved in two steps so the button works in every language
+ * and deployment without a rebuild:
+ *   1. Build-time `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (fast path).
+ *   2. If those were not present when Vercel built the SPA, fetch the public
+ *      values from the API host (`GET /api/auth/config`). Only the anon key is
+ *      ever exposed; the service-role key stays server-side.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { apiUrl } from './api';
 
-const SUPABASE_URL = ((import.meta.env.VITE_SUPABASE_URL as string | undefined) || '').trim();
-const SUPABASE_ANON_KEY = ((import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || '').trim();
+const ENV_URL = ((import.meta.env.VITE_SUPABASE_URL as string | undefined) || '').trim();
+const ENV_KEY = ((import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || '').trim();
 
-/** True when both public Supabase values are present; the Google button is hidden otherwise. */
-export const isSupabaseAuthConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+/** True when both public Supabase values were baked in at build time. */
+export const isSupabaseAuthConfigured = Boolean(ENV_URL && ENV_KEY);
 
-export const supabase: SupabaseClient | null = isSupabaseAuthConfigured
-  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: {
-        // PKCE keeps the token exchange in the browser without a client secret.
-        flowType: 'pkce',
-        detectSessionInUrl: true,
-        persistSession: true,
-        autoRefreshToken: true,
-      },
-    })
-  : null;
+let client: SupabaseClient | null = null;
+let clientPromise: Promise<SupabaseClient | null> | null = null;
+
+interface RuntimeSupabaseConfig {
+  enabled?: boolean;
+  supabaseUrl?: string | null;
+  supabaseAnonKey?: string | null;
+}
+
+function createSupabaseClient(url: string, anonKey: string): SupabaseClient {
+  return createClient(url, anonKey, {
+    auth: {
+      // PKCE keeps the token exchange in the browser without a client secret.
+      flowType: 'pkce',
+      detectSessionInUrl: true,
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+  });
+}
+
+async function fetchRuntimeConfig(): Promise<RuntimeSupabaseConfig | null> {
+  try {
+    const res = await fetch(apiUrl('/api/auth/config'), {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const data: any = await res.json().catch(() => null);
+    return data?.googleSignIn || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Returns a configured Supabase client, or `null` when neither the build nor
+ * the API host has public Supabase credentials.
+ *
+ * Called on demand (only when Google sign-in is actually used), so a missing
+ * config never blocks app boot.
+ */
+export async function getSupabaseClient(): Promise<SupabaseClient | null> {
+  if (client) return client;
+
+  if (!clientPromise) {
+    clientPromise = (async () => {
+      if (isSupabaseAuthConfigured) {
+        client = createSupabaseClient(ENV_URL, ENV_KEY);
+        return client;
+      }
+
+      const runtime = await fetchRuntimeConfig();
+      const url = ((runtime?.supabaseUrl as string | undefined) || '').trim();
+      const anonKey = ((runtime?.supabaseAnonKey as string | undefined) || '').trim();
+      if (!url || !anonKey) return null;
+
+      client = createSupabaseClient(url, anonKey);
+      return client;
+    })();
+  }
+
+  return clientPromise;
+}
 
 export interface GoogleSignInResult {
   ok: boolean;
   error?: string;
+  /** `not_configured` lets the UI show a localised "not set up" message. */
+  code?: 'not_configured';
 }
 
 /**
@@ -40,9 +99,11 @@ export interface GoogleSignInResult {
  * `redirectPath` is the app route to land on afterwards (`/` or `/bm`).
  */
 export async function signInWithGoogle(redirectPath = '/'): Promise<GoogleSignInResult> {
+  const supabase = await getSupabaseClient();
   if (!supabase) {
     return {
       ok: false,
+      code: 'not_configured',
       error: 'Google sign-in is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.',
     };
   }
@@ -65,6 +126,7 @@ export async function signInWithGoogle(redirectPath = '/'): Promise<GoogleSignIn
 
 /** Clears the Supabase session (best effort). */
 export async function signOutOfSupabase(): Promise<void> {
+  const supabase = await getSupabaseClient();
   if (!supabase) return;
   try {
     await supabase.auth.signOut();

@@ -226,6 +226,7 @@ export default function LoginView({ onLoginSuccess, initialError = null, redirec
             <GoogleSignInButton
               label="Sign in with Google"
               loadingLabel="Redirecting to Google..."
+              unavailableMessage="Google sign-in is not configured yet. Add SUPABASE_URL and SUPABASE_ANON_KEY on the API host, or VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY on Vercel."
               redirectPath={redirectPath}
               disabled={loading}
               onError={(message) => setErrorMsg(message)}

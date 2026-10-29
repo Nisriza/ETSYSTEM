@@ -17,7 +17,11 @@ export default defineConfig(() => ({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      // Registration is handled in src/main.tsx so we can pass
+      // `updateViaCache: 'none'` and a versioned script URL. That replaces the
+      // old hand-written /sw.js (which could keep serving a stale shell for
+      // `/` while `/bm` loaded the new app).
+      injectRegister: null,
       includeAssets: [
         'icons/apple-touch-icon.png',
         'icons/favicon-32.png',

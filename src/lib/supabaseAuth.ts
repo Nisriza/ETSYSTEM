@@ -10,7 +10,7 @@
  *      returns the usual { token, user } payload.
  */
 import { apiFetch } from './api';
-import { supabase } from './supabaseClient';
+import { getSupabaseClient } from './supabaseClient';
 import type { User } from '../types';
 
 export interface BridgedSession {
@@ -24,6 +24,7 @@ export interface BridgedSession {
  * Throws with a user-facing message when the server rejects the token.
  */
 export async function bridgeSupabaseSession(): Promise<BridgedSession | null> {
+  const supabase = await getSupabaseClient();
   if (!supabase) return null;
 
   const { data, error } = await supabase.auth.getSession();

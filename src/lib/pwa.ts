@@ -69,8 +69,14 @@ export async function cleanupForeignServiceWorkers(): Promise<void> {
           try {
             const url = new URL(scriptUrl);
             if (url.origin !== window.location.origin) return false;
-            // vite-plugin-pwa emits /sw.js in builds and /dev-sw.js in dev mode.
-            return url.pathname === '/sw.js' || url.pathname === '/dev-sw.js';
+            // Only the worker for the current mode belongs here:
+            //   production build -> /sw.js
+            //   `npm run dev`    -> /dev-sw.js
+            // A leftover worker from the other mode (or the old hand-written
+            // /sw.js) is treated as foreign and unregistered.
+            return import.meta.env.DEV
+              ? url.pathname === '/dev-sw.js'
+              : url.pathname === '/sw.js';
           } catch {
             return false;
           }

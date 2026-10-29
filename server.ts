@@ -349,6 +349,23 @@ function supabaseApiKey(): string {
   );
 }
 
+// Public runtime config for the browser. Hosting the public Supabase URL and
+// anon key here means the SPA still gets Google sign-in when Vercel was built
+// without the VITE_SUPABASE_* variables. Never expose the service-role key.
+app.get('/api/auth/config', (_req, res) => {
+  const supabaseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
+  const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '').trim();
+
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({
+    googleSignIn: {
+      enabled: Boolean(supabaseUrl && supabaseAnonKey),
+      supabaseUrl: supabaseUrl || null,
+      supabaseAnonKey: supabaseAnonKey || null,
+    },
+  });
+});
+
 function buildUsernameFromEmail(email: string): string {
   const local = (email.split('@')[0] || 'rider').toLowerCase().replace(/[^a-z0-9._-]/g, '');
   return (local || 'rider').slice(0, 24);
