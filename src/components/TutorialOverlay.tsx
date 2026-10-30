@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronRight, ChevronLeft, X } from 'lucide-react';
 
+export type TutorialLang = 'en' | 'bm';
+
 export interface TutorialStep {
   targetId: string;
   title: string;
   body: string;
-  bmTitle?: string;
-  bmBody?: string;
 }
 
 interface TutorialOverlayProps {
   steps: TutorialStep[];
   onClose: () => void;
+  /** Current UI language; tutorials must follow it, not the URL. */
+  lang?: TutorialLang;
 }
 
 interface Rect {
@@ -23,13 +25,31 @@ interface Rect {
 
 const PAD = 8;
 
-export default function TutorialOverlay({ steps, onClose }: TutorialOverlayProps) {
+const CHROME = {
+  en: {
+    step: (index: number, total: number) => `Step ${index} / ${total}`,
+    skip: 'Skip',
+    back: 'Back',
+    next: 'Next',
+    finish: 'Finish',
+    close: 'Close tutorial',
+  },
+  bm: {
+    step: (index: number, total: number) => `Langkah ${index} daripada ${total}`,
+    skip: 'Langkau',
+    back: 'Kembali',
+    next: 'Seterusnya',
+    finish: 'Selesai',
+    close: 'Tutup tutorial',
+  },
+};
+
+export default function TutorialOverlay({ steps, onClose, lang = 'en' }: TutorialOverlayProps) {
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
 
   const current = steps[index];
-
-  const isBm = typeof window !== 'undefined' && window.location.pathname.startsWith('/bm');
+  const ui = CHROME[lang] || CHROME.en;
 
   const measure = useCallback(() => {
     if (!current) return;
@@ -125,20 +145,20 @@ export default function TutorialOverlay({ steps, onClose }: TutorialOverlayProps
       >
         <div className="flex items-center justify-between mb-2">
           <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">
-            {`Step ${index + 1} / ${steps.length}`}
+            {ui.step(index + 1, steps.length)}
           </span>
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-700 transition cursor-pointer"
-            aria-label="Close tutorial"
+            aria-label={ui.close}
             id="tutorial-close"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <h3 className="font-display font-extrabold text-slate-900 text-base leading-snug">{(isBm && current.bmTitle) ? current.bmTitle : current.title}</h3>
-        <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">{(isBm && current.bmBody) ? current.bmBody : current.body}</p>
+        <h3 className="font-display font-extrabold text-slate-900 text-base leading-snug">{current.title}</h3>
+        <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">{current.body}</p>
 
         <div className="mt-5 flex items-center justify-between">
           <button
@@ -146,7 +166,7 @@ export default function TutorialOverlay({ steps, onClose }: TutorialOverlayProps
             className="text-xs font-semibold text-slate-400 hover:text-slate-600 transition cursor-pointer"
             id="tutorial-skip"
           >
-            Skip
+            {ui.skip}
           </button>
 
           <div className="flex items-center gap-2">
@@ -157,7 +177,7 @@ export default function TutorialOverlay({ steps, onClose }: TutorialOverlayProps
                 id="tutorial-back"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
-                Back
+                {ui.back}
               </button>
             )}
             <button
@@ -165,7 +185,7 @@ export default function TutorialOverlay({ steps, onClose }: TutorialOverlayProps
               className="flex items-center gap-1 px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition cursor-pointer"
               id="tutorial-next"
             >
-              {isLast ? 'Finish' : 'Next'}
+              {isLast ? ui.finish : ui.next}
               {!isLast && <ChevronRight className="w-3.5 h-3.5" />}
             </button>
           </div>

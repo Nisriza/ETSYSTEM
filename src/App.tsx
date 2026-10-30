@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { User } from './types.ts';
 import LoginView from './components/LoginView.tsx';
-import LoginViewBM from './components/LoginViewBM.tsx';
 import PassengerView from './components/PassengerView.tsx';
 import PassengerViewBM from './components/PassengerViewBM.tsx';
 import OperatorView from './components/OperatorView.tsx';
 import OperatorViewBM from './components/OperatorViewBM.tsx';
 import AdminView from './components/AdminView.tsx';
 import AdminViewBM from './components/AdminViewBM.tsx';
-import { Train, LogOut, Loader2, User as UserIcon, HelpCircle } from 'lucide-react';
+import { Train, LogOut, LogIn, Loader2, User as UserIcon, HelpCircle } from 'lucide-react';
 import TutorialOverlay from './components/TutorialOverlay.tsx';
 import InstallAppButton from './components/InstallAppButton.tsx';
 import AIAssistant from './components/AIAssistant.tsx';
@@ -26,6 +25,11 @@ function AppContent() {
   const [authNotice, setAuthNotice] = useState<string | null>(null);
   const lang = window.location.pathname.startsWith('/bm') ? 'bm' : 'en';
   const isBM = lang === 'bm';
+
+  // Keep the document language in sync for screen readers and translation tools.
+  useEffect(() => {
+    document.documentElement.lang = isBM ? 'ms' : 'en';
+  }, [isBM]);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,7 +86,33 @@ function AppContent() {
       return;
     }
     if (user.tutorial_completed) { setTutorialOpen(false); return; }
-    const timer = window.setTimeout(() => setTutorialOpen(true), 800);
+
+    // Only the first successful login suggests the tutorial. `login_count` is
+    // null when the phase-6 migration has not been applied, in which case we do
+    // not interrupt an existing account.
+    const loginCount = typeof user.login_count === 'number' ? user.login_count : null;
+    if (loginCount !== 1) { setTutorialOpen(false); return; }
+
+    // A refresh keeps `login_count` at 1 until the next sign-in. The session
+    // guard stops the suggestion from reopening on every reload.
+    const guardKey = `ets_tutorial_auto_${user.id}`;
+    try {
+      if (window.sessionStorage.getItem(guardKey) === '1') {
+        setTutorialOpen(false);
+        return;
+      }
+    } catch {
+      /* storage disabled */
+    }
+
+    const timer = window.setTimeout(() => {
+      try {
+        window.sessionStorage.setItem(guardKey, '1');
+      } catch {
+        /* storage disabled */
+      }
+      setTutorialOpen(true);
+    }, 800);
     return () => window.clearTimeout(timer);
   }, [user, token]);
 
@@ -90,6 +120,7 @@ function AppContent() {
     setTutorialOpen(false);
     if (user && user.role !== 'guest' && !user.tutorial_completed) {
       markTutorialCompleted(true).catch(() => { /* ignore */ });
+      setUser((prev) => (prev ? { ...prev, tutorial_completed: true } : prev));
     }
   };
 
@@ -147,17 +178,20 @@ function AppContent() {
   }
 
   if (!user || !token) {
-    return isBM ? (
-      <LoginViewBM onLoginSuccess={handleLoginSuccess} initialError={authNotice} redirectPath="/bm" />
-    ) : (
-      <LoginView onLoginSuccess={handleLoginSuccess} initialError={authNotice} redirectPath="/" />
+    return (
+      <LoginView
+        onLoginSuccess={handleLoginSuccess}
+        initialError={authNotice}
+        lang={isBM ? 'bm' : 'en'}
+        redirectPath={isBM ? '/bm' : '/'}
+      />
     );
   }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans" id="app-main">
       <header className="bg-white border-b border-[#e2e8f0] text-[#1e293b]" id="main-app-header">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-3.5 flex items-center justify-between" id="header-wrapper">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 py-3.5 flex flex-wrap items-center justify-between gap-y-2.5" id="header-wrapper">
           <div className="flex items-center gap-3">
             <div className="bg-[#4f46e5] p-2.5 rounded-xl text-white shadow-sm">
               <Train className="h-5.5 w-5.5" />
@@ -173,8 +207,8 @@ function AppContent() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3" id="header-status">
-            <InstallAppButton />
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3" id="header-status">
+            <InstallAppButton lang={isBM ? 'bm' : 'en'} />
             <button
               id="btn-help-tutorial"
               type="button"
@@ -211,14 +245,25 @@ function AppContent() {
               </span>
             </div>
 
-            <button
-              id="btn-logout"
-              onClick={handleLogout}
-              className="p-2 py-1.5 sleek-btn-secondary border-red-100 hover:bg-red-50 hover:border-red-200 text-red-650 text-red-600 text-xs font-bold flex items-center gap-1 cursor-pointer"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              {isBM ? 'Log Keluar' : 'Logout'}
-            </button>
+            {user.role === 'guest' ? (
+              <button
+                id="btn-guest-signin"
+                onClick={handleLogout}
+                className="sleek-btn-secondary border-[#c7d2fe] bg-white p-2 py-1.5 text-xs font-bold text-[#4f46e5] hover:bg-[#eef2ff] flex items-center gap-1 cursor-pointer"
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                {isBM ? 'Log Masuk / Daftar' : 'Sign In / Register'}
+              </button>
+            ) : (
+              <button
+                id="btn-logout"
+                onClick={handleLogout}
+                className="p-2 py-1.5 sleek-btn-secondary border-red-100 hover:bg-red-50 hover:border-red-200 text-red-600 text-xs font-bold flex items-center gap-1 cursor-pointer"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                {isBM ? 'Log Keluar' : 'Logout'}
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -240,7 +285,11 @@ function AppContent() {
         </div>
       </footer>
       {tutorialOpen && user && (
-        <TutorialOverlay steps={getTutorialStepsForRole(user.role)} onClose={closeTutorial} />
+        <TutorialOverlay
+          steps={getTutorialStepsForRole(user.role, isBM ? 'bm' : 'en')}
+          onClose={closeTutorial}
+          lang={isBM ? 'bm' : 'en'}
+        />
       )}
     </div>
   );

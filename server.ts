@@ -158,6 +158,28 @@ function blockGuests(req: any, res: any, next: any) {
   next();
 }
 
+/**
+ * Increments the successful-login counter used to decide whether the tutorial
+ * should be suggested. Returns `null` when the phase-6 migration has not been
+ * run yet, so login keeps working without it.
+ */
+async function bumpLoginCount(db: any, userId: number): Promise<number | null> {
+  try {
+    await db.run('UPDATE Users SET login_count = COALESCE(login_count, 0) + 1 WHERE id = ?', [userId]);
+    const row = await db.get('SELECT login_count FROM Users WHERE id = ?', [userId]);
+    const count = Number(row?.login_count);
+    return Number.isFinite(count) ? count : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Accepts the app's `bm` code as well as the legacy `ms` value. */
+function normaliseLanguage(value: unknown): 'en' | 'bm' {
+  const code = String(value || '').toLowerCase();
+  return code === 'bm' || code === 'ms' ? 'bm' : 'en';
+}
+
 // ==========================================
 // 1. AUTHENTICATION ENDPOINTS
 // ==========================================
@@ -257,14 +279,28 @@ app.post('/api/auth/login', async (req, res) => {
 
     sessionStore.set(sessionToken, sessionUser);
 
-    // Save language preference if provided
+    // Save language preference if provided. Older schemas only allowed
+    // 'en'/'ms', so a failed preference update must not block sign-in.
+    const languageCode = normaliseLanguage(language || user.language);
     if (language) {
-      await db.run('UPDATE Users SET language = ? WHERE id = ?', [language, user.id]);
+      try {
+        await db.run('UPDATE Users SET language = ? WHERE id = ?', [languageCode, user.id]);
+      } catch {
+        /* phase-6 migration not applied yet */
+      }
     }
+
+    const loginCount = await bumpLoginCount(db, user.id);
 
     res.json({
       token: sessionToken,
-      user: { ...sessionUser, language: language || user.language || 'en', tutorial_completed: !!user.tutorial_completed, tutorial_completed_at: user.tutorial_completed_at || null }
+      user: {
+        ...sessionUser,
+        language: languageCode,
+        login_count: loginCount,
+        tutorial_completed: !!user.tutorial_completed,
+        tutorial_completed_at: user.tutorial_completed_at || null
+      }
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -311,14 +347,21 @@ app.get('/api/auth/me', async (req, res) => {
 
   // Fresh DB Fetch to check status
   const db = await getDB();
-  const dbUser = await db.get('SELECT id, full_name, username, role, status, language, tutorial_completed, tutorial_completed_at FROM Users WHERE id = ?', [sessionUser.id]);
+  const baseSelect = 'SELECT id, full_name, username, role, status, language, tutorial_completed, tutorial_completed_at';
+  let dbUser: any;
+  try {
+    dbUser = await db.get(`${baseSelect}, login_count FROM Users WHERE id = ?`, [sessionUser.id]);
+  } catch {
+    // phase-6 migration not applied yet
+    dbUser = await db.get(`${baseSelect} FROM Users WHERE id = ?`, [sessionUser.id]);
+  }
 
   if (!dbUser || (dbUser.status !== 'active' && dbUser.status !== 'approved')) {
     sessionStore.delete(token);
     return res.status(403).json({ error: 'User is suspended or deleted' });
   }
 
-  res.json({ user: dbUser });
+  res.json({ user: { ...dbUser, language: normaliseLanguage(dbUser.language), login_count: dbUser.login_count ?? null } });
 });
 
 app.post('/api/auth/logout', (req, res) => {
@@ -474,13 +517,16 @@ app.post('/api/auth/supabase', async (req, res) => {
     };
     sessionStore.set(sessionToken, sessionUser);
 
+    const loginCount = await bumpLoginCount(db, user.id);
+
     res.json({
       token: sessionToken,
       user: {
         ...sessionUser,
         email: user.email || email,
         avatar_url: user.avatar_url || avatarUrl,
-        language: user.language || 'en',
+        language: normaliseLanguage(user.language),
+        login_count: loginCount,
         tutorial_completed: !!user.tutorial_completed,
         tutorial_completed_at: user.tutorial_completed_at || null,
       },

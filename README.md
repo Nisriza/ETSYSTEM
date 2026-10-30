@@ -17,8 +17,8 @@ Riders can check how busy a route is likely to be, plan around public holidays, 
 | Operator reports | Monthly report generation and CSV export |
 | Admin console | User management, operator approval, stations/routes CRUD, holidays CRUD + sync, dataset upload/validation, model retrain/reset/download |
 | AI assistant | Optional floating assistant powered by Google Gemini (disabled when `GEMINI_API_KEY` is empty) |
-| PWA | Installable app: manifest, generated service worker, offline app shell, install button |
-| Auth | Username/password, guest access, and **Google sign-in via Supabase** |
+| PWA | Installable app: manifest, generated service worker, offline app shell, install/open control with platform-aware instructions |
+| Auth | Username/password, guest access, and **Google sign-in via Supabase**; language-aware tutorial on first login |
 
 ---
 
@@ -58,6 +58,7 @@ supabase_migration_phase2.sql
 supabase_migration_phase3.sql
 supabase_migration_phase4.sql
 supabase_migration_phase5.sql
+supabase_migration_phase6.sql
 ```
 
 Then:
@@ -130,7 +131,7 @@ Nothing else in the app changed: every protected route still uses the existing `
 2. **Authentication → URL Configuration**:
    - Site URL: `https://<your-vercel-app>.vercel.app`
    - Redirect URLs: `http://localhost:3000`, `http://localhost:3000/bm`, `https://<your-vercel-app>.vercel.app`, `https://<your-vercel-app>.vercel.app/bm`
-3. Run `supabase_migration_phase5.sql` (adds `Users.email`, `supabase_uid`, `auth_provider`, `avatar_url`).
+3. Run `supabase_migration_phase5.sql` (adds `Users.email`, `supabase_uid`, `auth_provider`, `avatar_url`) and `supabase_migration_phase6.sql` (adds `login_count`, backfills existing accounts, and aligns the `language` check constraint with `en`/`bm`).
 4. Copy **Project URL** and the **anon** key into `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` on Vercel and/or `SUPABASE_URL` / `SUPABASE_ANON_KEY` on the API host; copy the **service_role** key into `SUPABASE_SERVICE_ROLE_KEY` on the API host only.
 
 The button is rendered on **both** login screens (`/` and `/bm`). If the `VITE_` values were not present when Vercel built the SPA, the browser asks the API host for the public URL/anon key via `GET /api/auth/config`, so Google sign-in still works instead of disappearing from one build. Only the anon key is ever returned — never the service-role key.
@@ -159,18 +160,31 @@ Endpoints:
 
 ---
 
+## Tutorial and first-login behaviour
+
+- The tutorial follows the current UI language: `/bm` shows Malay content **and** Malay controls (`Langkau`, `Kembali`, `Seterusnya`, `Selesai`), while `/` shows English.
+- Registered users are offered the tutorial automatically only on their first successful login (`login_count === 1` with `tutorial_completed` false).
+- `supabase_migration_phase6.sql` backfills existing accounts to `login_count = 1`, so their next login counts as #2 and the tutorial is not forced on them. **Help** in the header opens it at any time.
+- Closing or skipping the tutorial stores `tutorial_completed`, and a per-session guard prevents a page refresh from reopening the suggestion.
+- If the phase-6 migration has not been run, `login_count` is `null`; the app then deliberately does not auto-open the tutorial, and login continues to work normally.
+- Guest accounts receive the optional prompt at sign-in. Their header shows **Sign In / Register** (**Log Masuk / Daftar**) instead of Logout, and the button returns them to the login screen.
+
+---
+
 ## PWA / installability
 
 - `vite-plugin-pwa` generates `dist/sw.js` and `dist/manifest.webmanifest` at build time from `vite.config.ts`.
 - Icons are produced by `node scripts/generate-icons.cjs` into `public/icons/` (192, 512, maskable 512, Apple touch, favicon).
 - On boot, `cleanupForeignServiceWorkers()` in `src/lib/pwa.ts` unregisters any service worker that is not ours and deletes caches that are not Workbox/`ets-` prefixed, so a stale worker from another project can't serve an old shell.
 - `src/main.tsx` registers the worker itself with a versioned URL (`/sw.js?v=3`) and `updateViaCache: 'none'`, checks for updates hourly, and reloads once when a new worker takes control. This also replaces the old hand-written `/sw.js`, which could keep serving a cached `/` (English) shell while `/bm` loaded the new build.
+- `src/lib/pwaInstall.ts` captures `beforeinstallprompt` at module load from `src/main.tsx`, before React mounts, so the install control on both the login page and the app header can use the native prompt whenever the browser offers it.
+- The control is context-aware: **Install Web App** when installation is possible, **Open in Web App** when the app is already installed but the user is in a normal browser tab, and an **Installed** badge when running standalone. When no native prompt exists (iOS/iPadOS/Safari, Android without the prompt, unsupported desktop browsers), the same button opens step-by-step instructions for that device: Add to Home Screen on iPhone/iPad, Add to Dock on macOS Safari, the browser menu on Android, and the address-bar install icon on desktop Chrome/Edge.
 - Chrome shows the install prompt on `https://` or `localhost` only. To test the production behaviour:
   ```bash
   npm run build
   npm start          # serve dist/ from Express on http://localhost:3000
   ```
-  Dev mode also registers a worker (`devOptions.enabled`) so the Install button is testable with `npm run dev`.
+  Dev mode also registers a worker (`devOptions.enabled`) so the install button is testable with `npm run dev`. Only Chromium-based browsers expose the native prompt; the manual instructions cover the rest.
 
 ---
 
@@ -226,6 +240,8 @@ src/
   lib/supabaseClient.ts       Browser Supabase client + Google sign-in helpers
   lib/supabaseAuth.ts         Exchanges the Supabase session for an app token
   lib/pwa.ts                  Install status + foreign service-worker cleanup
+  lib/pwaInstall.ts           Early beforeinstallprompt capture + install state store
+  lib/tutorial.ts             Localised tutorial steps (EN/BM) per role
   lib/predictor.ts            Model metrics, training orchestration, Python invocation
   db/sqlite.ts                Supabase SQL adapter (exec_sql RPC)
 ml/                           train.py / predict.py / model artefacts
@@ -245,6 +261,9 @@ vercel.json                   SPA hosting config for the Vercel frontend
 | Google button missing in production | Set `SUPABASE_URL` + `SUPABASE_ANON_KEY` on the API host, or `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` on Vercel (then rebuild) |
 | Google button appears only in one language / one page shows an old app | A stale PWA worker is serving an old cached `/` shell. Reload once (the new worker replaces itself), or clear site data. The versioned SW registration in `src/main.tsx` prevents it recurring |
 | `Database migration missing` on Google login | Run `supabase_migration_phase5.sql` |
+| Tutorial never opens automatically | Run `supabase_migration_phase6.sql`; without the `login_count` column the app intentionally skips the automatic suggestion. Users can still open it from **Help** |
+| Tutorial reopens on every refresh | The per-session guard only lasts for the tab session. Close/skip the tutorial once so `tutorial_completed` is stored, or run `supabase_migration_phase6.sql` |
+| Install button shows instructions instead of a prompt | Expected on iOS/iPadOS/Safari and other non-Chromium browsers. Chromium on `https://`/`localhost` shows the native prompt when the app is installable |
 | Holidays list empty | Admin → Holidays → **Sync … Holidays**, or check that the `Holidays` table has rows |
 | `redirect_uri_mismatch` from Google | The Google client's redirect URI must be `https://<ref>.supabase.co/auth/v1/callback` |
 | API calls fail only on the deployed site | `VITE_API_BASE_URL` wrong, or the API host's `CORS_ORIGINS` does not include the Vercel origin |

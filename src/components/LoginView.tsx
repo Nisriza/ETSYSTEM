@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { User } from '../types.ts';
-import { Train, Shield, User as UserIcon, Lock, Loader2, ArrowRight } from 'lucide-react';
+import { Train, User as UserIcon, Lock, Loader2, ArrowRight, CheckCircle2, UserRound } from 'lucide-react';
 import GoogleSignInButton from './GoogleSignInButton.tsx';
+import InstallAppButton from './InstallAppButton.tsx';
 import { apiFetch } from '../lib/api.ts';
+
+type LoginLang = 'en' | 'bm';
 
 interface LoginViewProps {
   onLoginSuccess: (user: User, token: string) => void;
@@ -10,9 +13,152 @@ interface LoginViewProps {
   initialError?: string | null;
   /** Route Supabase should return to after Google OAuth. */
   redirectPath?: string;
+  /** Current UI language; the login screen copy follows it. */
+  lang?: LoginLang;
 }
 
-export default function LoginView({ onLoginSuccess, initialError = null, redirectPath = '/' }: LoginViewProps) {
+const COPY = {
+  en: {
+    brandTag: 'Electric Train Service',
+    subtitle: 'Public Transport Ridership Prediction & Travel Planning System',
+    features: [
+      'Forecast ridership by route, date and time',
+      'Plan around public holidays and peak demand',
+      'Save trips and share crowd feedback',
+    ],
+    signIn: 'Sign In',
+    register: 'Register New Account',
+    signInIntro: 'Sign in to continue to your dashboard.',
+    registerIntro: 'Create an account to save trips and unlock every feature.',
+    quickAccess: 'Quick access',
+    guest: 'Continue as Guest',
+    guestNote: 'Guests get limited access: search, prediction and holiday viewing.',
+    divider: 'or use your account',
+    fullName: 'Full Name',
+    fullNamePlaceholder: 'e.g. Mohd Amin',
+    username: 'Username',
+    usernamePlaceholder: 'Enter username',
+    password: 'Password',
+    passwordPlaceholder: 'Enter password',
+    roleLabel: 'User Type / Role',
+    passenger: 'Passenger',
+    operator: 'Operator',
+    pleaseWait: 'Please Wait...',
+    createAccount: 'Create Account',
+    signInNow: 'Sign In Now',
+    forgot: 'Forgot Password?',
+    toggleRegister: "Don't have an account? Register here",
+    toggleSignIn: 'Already have an account? Sign In',
+    googleLabel: 'Sign in with Google',
+    googleLoading: 'Redirecting to Google...',
+    googleUnavailable:
+      'Google sign-in is not configured yet. Add SUPABASE_URL and SUPABASE_ANON_KEY on the API host, or VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY on Vercel.',
+    errRequired: 'Username and password are required.',
+    errFullName: 'Please specify your Full Name.',
+    errRegister: 'Failed to complete registration.',
+    errAutoLogin: 'Registration successful, but auto-login failed. Please sign in manually.',
+    errInvalid: 'Invalid credentials or user suspended.',
+    errNetworkServer: 'Network error. Check connection or restart server.',
+    errGuest: 'Failed to start guest session.',
+    errNetwork: 'Network error. Please try again.',
+    registrationSuccess: 'Registration successful! Logging you in...',
+    forgotTitle: 'Reset Password',
+    forgotIntro: 'Enter your registered full name and username to reset your password.',
+    forgotFullNamePlaceholder: 'e.g. Aminah binti Ali',
+    forgotUsername: 'Username',
+    forgotUsernamePlaceholder: 'Your username',
+    forgotNew: 'New Password',
+    forgotNewPlaceholder: 'Min 8 chars, uppercase, lowercase, number, symbol',
+    forgotConfirm: 'Confirm New Password',
+    forgotConfirmPlaceholder: 'Re-enter new password',
+    forgotSubmit: 'Reset Password',
+    forgotSubmitting: 'Resetting...',
+    cancel: 'Cancel',
+    forgotErrFields: 'Please fill in all fields.',
+    forgotErrMatch: 'Passwords do not match.',
+    forgotErrFailed: 'Failed to reset password.',
+    forgotSuccess: 'Password reset successfully!',
+    guestTitle: 'Welcome, Guest!',
+    guestIntro: 'Would you like a quick step-by-step tutorial on how to predict ridership?',
+    guestYes: 'Yes, start tutorial',
+    guestSkip: 'Skip for now',
+  },
+  bm: {
+    brandTag: 'Perkhidmatan Kereta Api Elektrik',
+    subtitle: 'Sistem Ramalan Ridership Pengangkutan Awam & Perancangan Perjalanan',
+    features: [
+      'Ramal jumlah penumpang mengikut laluan, tarikh dan masa',
+      'Rancang perjalanan mengikut cuti umum dan permintaan puncak',
+      'Simpan perjalanan dan kongsi maklum balas penumpang',
+    ],
+    signIn: 'Log Masuk',
+    register: 'Daftar Akaun Baru',
+    signInIntro: 'Log masuk untuk meneruskan ke papan pemuka anda.',
+    registerIntro: 'Cipta akaun untuk menyimpan perjalanan dan membuka semua ciri.',
+    quickAccess: 'Akses pantas',
+    guest: 'Teruskan sebagai Tetamu',
+    guestNote: 'Tetamu mendapat akses terhad: carian, ramalan dan paparan cuti sahaja.',
+    divider: 'atau guna akaun anda',
+    fullName: 'Nama Penuh',
+    fullNamePlaceholder: 'cth. Mohd Amin',
+    username: 'Nama Pengguna',
+    usernamePlaceholder: 'Masukkan nama pengguna',
+    password: 'Kata Laluan',
+    passwordPlaceholder: 'Masukkan kata laluan',
+    roleLabel: 'Jenis Pengguna / Peranan',
+    passenger: 'Penumpang',
+    operator: 'Pengendali',
+    pleaseWait: 'Sila Tunggu...',
+    createAccount: 'Buat Akaun',
+    signInNow: 'Log Masuk Sekarang',
+    forgot: 'Lupa Kata Laluan?',
+    toggleRegister: 'Tiada akaun? Daftar di sini',
+    toggleSignIn: 'Sudah ada akaun? Log Masuk',
+    googleLabel: 'Log masuk dengan Google',
+    googleLoading: 'Mengalih ke Google...',
+    googleUnavailable:
+      'Log masuk Google belum dikonfigurasikan. Tetapkan SUPABASE_URL dan SUPABASE_ANON_KEY pada hos API, atau VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di Vercel.',
+    errRequired: 'Nama pengguna dan kata laluan diperlukan.',
+    errFullName: 'Sila isi Nama Penuh anda.',
+    errRegister: 'Pendaftaran gagal dilengkapkan.',
+    errAutoLogin: 'Pendaftaran berjaya, tetapi log masuk automatik gagal. Sila log masuk secara manual.',
+    errInvalid: 'Kelayakan tidak sah atau akaun digantung.',
+    errNetworkServer: 'Ralat rangkaian. Sila semak sambungan atau mulakan semula pelayan.',
+    errGuest: 'Gagal memulakan sesi tetamu.',
+    errNetwork: 'Ralat rangkaian. Sila cuba lagi.',
+    registrationSuccess: 'Pendaftaran berjaya! Log masuk...',
+    forgotTitle: 'Set Semula Kata Laluan',
+    forgotIntro: 'Masukkan nama penuh dan nama pengguna berdaftar untuk menyet semula kata laluan anda.',
+    forgotFullNamePlaceholder: 'cth. Aminah binti Ali',
+    forgotUsername: 'Nama Pengguna',
+    forgotUsernamePlaceholder: 'Nama pengguna anda',
+    forgotNew: 'Kata Laluan Baru',
+    forgotNewPlaceholder: 'Minimum 8 aksara, huruf besar, huruf kecil, nombor, simbol',
+    forgotConfirm: 'Sahkan Kata Laluan Baru',
+    forgotConfirmPlaceholder: 'Masukkan semula kata laluan baru',
+    forgotSubmit: 'Set Semula Kata Laluan',
+    forgotSubmitting: 'Menyet semula...',
+    cancel: 'Batal',
+    forgotErrFields: 'Sila isi semua medan.',
+    forgotErrMatch: 'Kata laluan tidak sepadan.',
+    forgotErrFailed: 'Gagal menyet semula kata laluan.',
+    forgotSuccess: 'Kata laluan berjaya diset semula!',
+    guestTitle: 'Selamat Datang, Tetamu!',
+    guestIntro: 'Adakah anda ingin melihat tutorial ringkas langkah demi langkah cara meramal jumlah penumpang?',
+    guestYes: 'Ya, mula tutorial',
+    guestSkip: 'Langkau',
+  },
+};
+
+export default function LoginView({
+  onLoginSuccess,
+  initialError = null,
+  lang = 'en',
+  redirectPath = lang === 'bm' ? '/bm' : '/',
+}: LoginViewProps) {
+  const language: LoginLang = lang === 'bm' ? 'bm' : 'en';
+  const c = COPY[language];
+
   const [isRegister, setIsRegister] = useState(false);
   const [isForgot, setIsForgot] = useState(false);
   const [fullName, setFullName] = useState('');
@@ -42,7 +188,7 @@ export default function LoginView({ onLoginSuccess, initialError = null, redirec
       const res = await apiFetch('/api/auth/guest', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) {
-        setErrorMsg(data.error || 'Failed to start guest session.');
+        setErrorMsg(data.error || c.errGuest);
         setLoading(false);
         return;
       }
@@ -50,7 +196,7 @@ export default function LoginView({ onLoginSuccess, initialError = null, redirec
       else localStorage.removeItem('show_tutorial');
       onLoginSuccess(data.user, data.token);
     } catch {
-      setErrorMsg('Network error. Please try again.');
+      setErrorMsg(c.errNetwork);
       setLoading(false);
     }
   };
@@ -61,12 +207,12 @@ export default function LoginView({ onLoginSuccess, initialError = null, redirec
     setSuccessMsg(null);
 
     if (!username.trim() || !password.trim()) {
-      setErrorMsg('Username and password are required.');
+      setErrorMsg(c.errRequired);
       return;
     }
 
     if (isRegister && !fullName.trim()) {
-      setErrorMsg('Please specify your Full Name.');
+      setErrorMsg(c.errFullName);
       return;
     }
 
@@ -81,34 +227,34 @@ export default function LoginView({ onLoginSuccess, initialError = null, redirec
             full_name: fullName,
             username: username.toLowerCase().trim(),
             password,
-            role: userType
-          })
+            role: userType,
+          }),
         });
 
         const data = await response.json();
 
         if (!response.ok) {
-          setErrorMsg(data.error || 'Failed to complete registration.');
+          setErrorMsg(data.error || c.errRegister);
           setLoading(false);
           return;
         }
 
-        setSuccessMsg('Registration successful! Logging you in...');
-        
+        setSuccessMsg(c.registrationSuccess);
+
         const loginResponse = await apiFetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             username: username.toLowerCase().trim(),
             password,
-            language: 'en'
-          })
+            language,
+          }),
         });
 
         const loginData = await loginResponse.json();
-        
+
         if (!loginResponse.ok) {
-          setErrorMsg('Registration successful, but auto-login failed. Please sign in manually.');
+          setErrorMsg(c.errAutoLogin);
           setIsRegister(false);
           setLoading(false);
           return;
@@ -122,14 +268,14 @@ export default function LoginView({ onLoginSuccess, initialError = null, redirec
           body: JSON.stringify({
             username: username.toLowerCase().trim(),
             password,
-            language: 'en'
-          })
+            language,
+          }),
         });
 
         const data = await response.json();
 
         if (!response.ok) {
-          setErrorMsg(data.error || 'Invalid credentials or user suspended.');
+          setErrorMsg(data.error || c.errInvalid);
           setLoading(false);
           return;
         }
@@ -138,7 +284,7 @@ export default function LoginView({ onLoginSuccess, initialError = null, redirec
       }
     } catch (err) {
       console.error('Submit handling error:', err);
-      setErrorMsg('Network error. Check connection or restart server.');
+      setErrorMsg(c.errNetworkServer);
     } finally {
       setLoading(false);
     }
@@ -150,12 +296,12 @@ export default function LoginView({ onLoginSuccess, initialError = null, redirec
     setSuccessMsg(null);
 
     if (!forgotFullname.trim() || !forgotUsername.trim() || !forgotNewPassword.trim()) {
-      setErrorMsg('Please fill in all fields.');
+      setErrorMsg(c.forgotErrFields);
       return;
     }
 
     if (forgotNewPassword !== forgotConfirmPassword) {
-      setErrorMsg('Passwords do not match.');
+      setErrorMsg(c.forgotErrMatch);
       return;
     }
 
@@ -167,89 +313,178 @@ export default function LoginView({ onLoginSuccess, initialError = null, redirec
         body: JSON.stringify({
           fullname: forgotFullname,
           username: forgotUsername.toLowerCase().trim(),
-          newPassword: forgotNewPassword
-        })
+          newPassword: forgotNewPassword,
+        }),
       });
       const data = await res.json();
       if (res.ok) {
-        setSuccessMsg(data.message || 'Password reset successfully!');
+        setSuccessMsg(data.message || c.forgotSuccess);
         setForgotFullname('');
         setForgotUsername('');
         setForgotNewPassword('');
         setForgotConfirmPassword('');
         setIsForgot(false);
       } else {
-        setErrorMsg(data.error || 'Failed to reset password.');
+        setErrorMsg(data.error || c.forgotErrFailed);
       }
     } catch {
-      setErrorMsg('Network error. Please try again.');
+      setErrorMsg(c.errNetwork);
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] px-4 py-12 font-sans" id="login-container">
-      <div className="w-full max-w-md bg-white border border-[#e2e8f0] shadow-md rounded-2xl overflow-hidden" id="login-card">
-        <div className="flex justify-end px-6 pt-4">
-          <div className="inline-flex items-center bg-slate-100 rounded-lg p-0.5 text-xs font-bold">
-            <span className="px-3 py-1.5 bg-white rounded-md shadow-sm text-[#4f46e5] cursor-default">EN</span>
-            <button onClick={() => window.location.href = '/bm'} className="px-3 py-1.5 text-slate-500 hover:text-[#4f46e5] cursor-pointer">BM</button>
-          </div>
-        </div>
-        <div className="bg-white border-b border-[#e2e8f0] px-6 py-8 text-center" id="brand-header">
-          <div className="inline-flex items-center justify-center p-3.5 bg-[#e0e7ff]/60 border border-[#c7d2fe] rounded-2xl mb-3.5 shadow-sm" id="brand-icon-wrapper">
-            <Train className="h-7 w-7 text-[#4f46e5]" id="brand-train-icon" />
-          </div>
-          <h1 className="font-display text-[22px] font-extrabold tracking-tight text-[#111827]" id="app-title">{'ETS Rider Predict System'}</h1>
-          <p className="text-[#64748b] text-xs mt-1.5 font-medium" id="app-subtitle">{'Public Transport Ridership Prediction & Travel Planning System'}</p>
-        </div>
+  const resetAlerts = () => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+  };
 
-        <div className="p-8 pt-2" id="form-container">
-          <h2 className="font-display text-base font-bold text-[#1e293b] mb-5" id="action-heading">
-            {isRegister ? 'Register New Account' : 'Sign In'}
-          </h2>
+  return (
+    <div className="min-h-screen bg-[#f1f5f9] px-4 py-8 font-sans flex items-center justify-center md:py-12" id="login-container">
+      <div
+        className="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-[#e2e8f0] bg-white shadow-xl lg:grid-cols-[1.02fr_0.98fr]"
+        id="login-card"
+      >
+        {/* Brand + install column */}
+        <aside
+          className="relative flex min-w-0 flex-col overflow-hidden bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#4338ca] p-7 text-white md:p-9"
+          id="brand-header"
+        >
+          <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-white/10 blur-2xl" aria-hidden="true" />
+          <div className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-indigo-400/20 blur-3xl" aria-hidden="true" />
+
+          <div className="relative flex flex-wrap items-center justify-between gap-3">
+            <span className="inline-flex min-w-0 items-center gap-2 break-words text-[10px] font-extrabold uppercase leading-snug tracking-[0.22em] text-indigo-200">
+              <Train className="h-3.5 w-3.5" />
+              {c.brandTag}
+            </span>
+            <div
+              className="inline-flex shrink-0 items-center rounded-lg bg-white/10 p-0.5 text-[11px] font-bold ring-1 ring-white/15"
+              id="login-lang-toggle"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  if (language === 'bm') window.location.href = '/';
+                }}
+                className={`cursor-pointer rounded-md px-2.5 py-1 transition ${
+                  language === 'en' ? 'bg-white text-[#4f46e5] shadow-sm' : 'text-indigo-100 hover:text-white'
+                }`}
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (language !== 'bm') window.location.href = '/bm';
+                }}
+                className={`cursor-pointer rounded-md px-2.5 py-1 transition ${
+                  language === 'bm' ? 'bg-white text-[#4f46e5] shadow-sm' : 'text-indigo-100 hover:text-white'
+                }`}
+              >
+                BM
+              </button>
+            </div>
+          </div>
+
+          <div className="relative mt-8 md:mt-10">
+            <div
+              className="mb-4 inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/10 p-3.5 shadow-sm"
+              id="brand-icon-wrapper"
+            >
+              <Train className="h-7 w-7 text-white" id="brand-train-icon" />
+            </div>
+            <h1 className="break-words font-display text-[26px] font-extrabold leading-tight tracking-tight text-white" id="app-title">
+              ETS Rider Predict System
+            </h1>
+            <p className="mt-2 max-w-sm text-xs font-medium leading-relaxed text-indigo-100/80" id="app-subtitle">
+              {c.subtitle}
+            </p>
+          </div>
+
+          <ul className="relative mt-7 hidden space-y-3 text-[11.5px] font-medium text-indigo-100/90 sm:block">
+            {c.features.map((feature) => (
+              <li key={feature} className="flex items-start gap-2.5">
+                <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-300" />
+                <span>{feature}</span>
+              </li>
+            ))}
+          </ul>
+
+          <div className="relative mt-auto pt-8">
+            <InstallAppButton lang={language} appearance="panel" />
+          </div>
+        </aside>
+
+        {/* Form column */}
+        <section className="flex min-w-0 flex-col p-7 md:p-9" id="form-container">
+          <div className="mb-5">
+            <h2 className="font-display text-xl font-extrabold text-[#111827]" id="action-heading">
+              {isRegister ? c.register : c.signIn}
+            </h2>
+            <p className="mt-1 text-[11.5px] leading-relaxed text-[#64748b]" id="action-subheading">
+              {isRegister ? c.registerIntro : c.signInIntro}
+            </p>
+          </div>
 
           {errorMsg && (
-            <div className="mb-4 p-3 bg-red-50 text-[#ef4444] border border-red-100 text-xs rounded-xl font-medium" id="auth-error-alert">
+            <div className="mb-4 rounded-xl border border-red-100 bg-red-50 p-3 text-xs font-medium text-[#ef4444]" id="auth-error-alert">
               {errorMsg}
             </div>
           )}
 
           {successMsg && (
-            <div className="mb-4 p-3 bg-emerald-50 text-[#10b981] border border-emerald-100 text-xs rounded-xl font-medium animate-bounce" id="auth-success-alert">
+            <div className="mb-4 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-xs font-medium text-[#10b981]" id="auth-success-alert">
               {successMsg}
             </div>
           )}
 
           <div className="mb-4" id="google-auth-block">
-            <GoogleSignInButton
-              label="Sign in with Google"
-              loadingLabel="Redirecting to Google..."
-              unavailableMessage="Google sign-in is not configured yet. Add SUPABASE_URL and SUPABASE_ANON_KEY on the API host, or VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY on Vercel."
-              redirectPath={redirectPath}
-              disabled={loading}
-              onError={(message) => setErrorMsg(message)}
-            />
-            <div className="flex items-center gap-3 my-4" aria-hidden="true">
-              <span className="flex-1 h-px bg-[#e2e8f0]" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">or use your account</span>
-              <span className="flex-1 h-px bg-[#e2e8f0]" />
+            <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#94a3b8]">{c.quickAccess}</p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <GoogleSignInButton
+                label={c.googleLabel}
+                loadingLabel={c.googleLoading}
+                unavailableMessage={c.googleUnavailable}
+                redirectPath={redirectPath}
+                disabled={loading}
+                onError={(message) => setErrorMsg(message)}
+              />
+              <button
+                id="btn-continue-guest"
+                type="button"
+                onClick={() => {
+                  resetAlerts();
+                  setGuestPrompt(true);
+                }}
+                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#e2e8f0] bg-white py-2.5 text-xs font-bold text-[#475569] transition hover:border-[#c7d2fe] hover:bg-slate-50 hover:text-[#4f46e5]"
+              >
+                <UserRound className="h-4 w-4" />
+                {c.guest}
+              </button>
+            </div>
+            <p className="mt-2 text-[10px] leading-relaxed text-[#94a3b8]">{c.guestNote}</p>
+            <div className="my-4 flex items-center gap-3" aria-hidden="true">
+              <span className="h-px flex-1 bg-[#e2e8f0]" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">{c.divider}</span>
+              <span className="h-px flex-1 bg-[#e2e8f0]" />
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4" id="auth-form">
+          <form onSubmit={handleSubmit} className="space-y-3.5" id="auth-form">
             {isRegister && (
               <div id="field-fullname">
-                <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1" htmlFor="fullname">{'Full Name'}</label>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-[#64748b]" htmlFor="fullname">
+                  {c.fullName}
+                </label>
                 <div className="relative">
                   <UserIcon className="absolute left-3.5 top-[11px] h-4 w-4 text-[#64748b]" />
                   <input
                     id="fullname"
                     type="text"
                     required
-                    className="w-full pl-10 pr-4 py-2 border border-[#e2e8f0] rounded-xl text-xs focus:outline-none focus:border-[#4f46e5] bg-[#f8fafc] focus:bg-white transition h-10 font-semibold text-[#1e293b]"
-                    placeholder={'e.g. Mohd Amin'}
+                    className="h-10 w-full rounded-xl border border-[#e2e8f0] bg-[#f8fafc] py-2 pl-10 pr-4 text-xs font-semibold text-[#1e293b] transition focus:border-[#4f46e5] focus:bg-white focus:outline-none"
+                    placeholder={c.fullNamePlaceholder}
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                   />
@@ -258,7 +493,9 @@ export default function LoginView({ onLoginSuccess, initialError = null, redirec
             )}
 
             <div id="field-username">
-              <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1" htmlFor="username">{'Username'}</label>
+              <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-[#64748b]" htmlFor="username">
+                {c.username}
+              </label>
               <div className="relative">
                 <UserIcon className="absolute left-3.5 top-[11px] h-4 w-4 text-[#64748b]" />
                 <input
@@ -266,8 +503,8 @@ export default function LoginView({ onLoginSuccess, initialError = null, redirec
                   type="text"
                   required
                   autoCapitalize="none"
-                  className="w-full pl-10 pr-4 py-2 border border-[#e2e8f0] rounded-xl text-xs focus:outline-none focus:border-[#4f46e5] bg-[#f8fafc] focus:bg-white transition h-10 font-semibold text-[#1e293b]"
-                  placeholder={'Enter username'}
+                  className="h-10 w-full rounded-xl border border-[#e2e8f0] bg-[#f8fafc] py-2 pl-10 pr-4 text-xs font-semibold text-[#1e293b] transition focus:border-[#4f46e5] focus:bg-white focus:outline-none"
+                  placeholder={c.usernamePlaceholder}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                 />
@@ -275,15 +512,17 @@ export default function LoginView({ onLoginSuccess, initialError = null, redirec
             </div>
 
             <div id="field-password">
-              <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1" htmlFor="password">{'Password'}</label>
+              <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-[#64748b]" htmlFor="password">
+                {c.password}
+              </label>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-[11px] h-4 w-4 text-[#64748b]" />
                 <input
                   id="password"
                   type="password"
                   required
-                  className="w-full pl-10 pr-4 py-2 border border-[#e2e8f0] rounded-xl text-xs focus:outline-none focus:border-[#4f46e5] bg-[#f8fafc] focus:bg-white transition h-10 font-semibold text-[#1e293b]"
-                  placeholder={'Enter password'}
+                  className="h-10 w-full rounded-xl border border-[#e2e8f0] bg-[#f8fafc] py-2 pl-10 pr-4 text-xs font-semibold text-[#1e293b] transition focus:border-[#4f46e5] focus:bg-white focus:outline-none"
+                  placeholder={c.passwordPlaceholder}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -292,21 +531,21 @@ export default function LoginView({ onLoginSuccess, initialError = null, redirec
 
             {isRegister && (
               <div id="field-usertype">
-                <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-2">{'User Type / Role'}</label>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#64748b]">{c.roleLabel}</label>
                 <div className="grid grid-cols-2 gap-2" id="role-grid">
                   {(['passenger', 'operator'] as const).map((role) => (
                     <button
                       key={role}
                       type="button"
                       id={`btn-role-${role}`}
-                      className={`py-2 px-1 border text-center text-xs font-bold rounded-xl capitalize transition cursor-pointer ${
+                      className={`cursor-pointer break-words rounded-xl border px-1 py-2 text-center text-[10.5px] font-bold leading-tight transition sm:text-xs ${
                         userType === role
                           ? 'border-[#4f46e5] bg-[#e0e7ff]/40 text-[#4f46e5]'
-                          : 'border-[#e2e8f0] bg-white hover:bg-slate-50 text-[#64748b]'
+                          : 'border-[#e2e8f0] bg-white text-[#64748b] hover:bg-slate-50'
                       }`}
                       onClick={() => setUserType(role)}
                     >
-                      {role === 'operator' ? 'Operator' : 'Passenger/User'}
+                      {role === 'operator' ? c.operator : c.passenger}
                     </button>
                   ))}
                 </div>
@@ -317,121 +556,104 @@ export default function LoginView({ onLoginSuccess, initialError = null, redirec
               id="btn-auth-submit"
               type="submit"
               disabled={loading}
-              className="w-full mt-2 bg-[#4f46e5] hover:bg-[#4338ca] text-white py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+              className="mt-1 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#4f46e5] py-2.5 text-xs font-bold text-white transition hover:bg-[#4338ca] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {'Please Wait...'}
+                  {c.pleaseWait}
                 </>
               ) : (
                 <>
-                  {isRegister ? 'Create Account' : 'Sign In Now'}
+                  {isRegister ? c.createAccount : c.signInNow}
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
             </button>
 
             {!isRegister && (
-              <div className="mt-2 text-center">
+              <div className="mt-1 text-center">
                 <button
                   id="btn-forgot-password"
                   type="button"
-                  className="text-xs font-medium text-[#64748b] hover:text-[#4f46e5] cursor-pointer"
+                  className="cursor-pointer text-xs font-medium text-[#64748b] transition hover:text-[#4f46e5]"
                   onClick={() => {
                     setIsForgot(true);
-                    setErrorMsg(null);
-                    setSuccessMsg(null);
+                    resetAlerts();
                   }}
                 >
-                  {'Forgot Password?'}
+                  {c.forgot}
                 </button>
               </div>
             )}
           </form>
 
-          <div className="mt-6 text-center border-t border-[#e2e8f0] pt-4.5" id="form-toggle-wrapper">
+          <div className="mt-5 border-t border-[#e2e8f0] pt-4 text-center" id="form-toggle-wrapper">
             <button
               id="btn-toggle-auth-mode"
-              className="text-xs font-bold text-[#4f46e5] hover:text-[#4338ca] cursor-pointer"
+              type="button"
+              className="cursor-pointer text-xs font-bold text-[#4f46e5] transition hover:text-[#4338ca]"
               onClick={() => {
                 setIsRegister(!isRegister);
-                setErrorMsg(null);
-                setSuccessMsg(null);
+                resetAlerts();
               }}
             >
-              {isRegister ? 'Already have an account? Sign In' : 'Don\'t have an account? Register here'}
+              {isRegister ? c.toggleSignIn : c.toggleRegister}
             </button>
-
-            <div className="mt-4">
-              <button
-                id="btn-continue-guest"
-                type="button"
-                onClick={() => { setErrorMsg(null); setSuccessMsg(null); setGuestPrompt(true); }}
-                className="w-full border border-[#e2e8f0] bg-white hover:bg-slate-50 text-[#64748b] hover:text-[#4f46e5] py-2.5 rounded-xl text-xs font-bold transition cursor-pointer"
-              >
-                {'Continue as Guest'}
-              </button>
-              <p className="text-[10.5px] text-[#94a3b8] mt-2 leading-relaxed">{'Guests get limited access: search, prediction and holiday viewing.'}</p>
-            </div>
           </div>
-        </div>
+        </section>
       </div>
 
       {/* Forgot Password Modal */}
       {isForgot && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="font-display font-extrabold text-[#111827] text-base mb-1">{'Reset Password'}</h3>
-            <p className="text-xs text-slate-500 mb-4">{'Enter your registered full name and username to reset your password.'}</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4" id="forgot-password-modal">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="mb-1 font-display text-base font-extrabold text-[#111827]">{c.forgotTitle}</h3>
+            <p className="mb-4 text-xs text-slate-500">{c.forgotIntro}</p>
 
             {errorMsg && (
-              <div className="mb-3 p-3 bg-red-50 text-[#ef4444] border border-red-100 text-xs rounded-xl font-medium">
-                {errorMsg}
-              </div>
+              <div className="mb-3 rounded-xl border border-red-100 bg-red-50 p-3 text-xs font-medium text-[#ef4444]">{errorMsg}</div>
             )}
             {successMsg && (
-              <div className="mb-3 p-3 bg-emerald-50 text-[#10b981] border border-emerald-100 text-xs rounded-xl font-medium">
-                {successMsg}
-              </div>
+              <div className="mb-3 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-xs font-medium text-[#10b981]">{successMsg}</div>
             )}
             <form onSubmit={handleForgotPassword} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1">{'Full Name'}</label>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">{c.fullName}</label>
                 <input
                   type="text"
-                  className="w-full py-2 px-3 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#4f46e5]"
-                  placeholder={'e.g. Aminah binti Ali'}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#4f46e5] focus:outline-none"
+                  placeholder={c.forgotFullNamePlaceholder}
                   value={forgotFullname}
                   onChange={(e) => setForgotFullname(e.target.value)}
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1">{'Username'}</label>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">{c.forgotUsername}</label>
                 <input
                   type="text"
-                  className="w-full py-2 px-3 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#4f46e5]"
-                  placeholder={'Your username'}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#4f46e5] focus:outline-none"
+                  placeholder={c.forgotUsernamePlaceholder}
                   value={forgotUsername}
                   onChange={(e) => setForgotUsername(e.target.value)}
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1">{'New Password'}</label>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">{c.forgotNew}</label>
                 <input
                   type="password"
-                  className="w-full py-2 px-3 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#4f46e5]"
-                  placeholder={'Min 8 chars, uppercase, lowercase, number, symbol'}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#4f46e5] focus:outline-none"
+                  placeholder={c.forgotNewPlaceholder}
                   value={forgotNewPassword}
                   onChange={(e) => setForgotNewPassword(e.target.value)}
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1">{'Confirm New Password'}</label>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">{c.forgotConfirm}</label>
                 <input
                   type="password"
-                  className="w-full py-2 px-3 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#4f46e5]"
-                  placeholder={'Re-enter new password'}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#4f46e5] focus:outline-none"
+                  placeholder={c.forgotConfirmPlaceholder}
                   value={forgotConfirmPassword}
                   onChange={(e) => setForgotConfirmPassword(e.target.value)}
                 />
@@ -441,42 +663,46 @@ export default function LoginView({ onLoginSuccess, initialError = null, redirec
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 bg-[#4f46e5] hover:bg-[#4338ca] text-white py-2.5 rounded-xl text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                  className="flex-1 cursor-pointer rounded-xl bg-[#4f46e5] py-2.5 text-xs font-bold text-white transition hover:bg-[#4338ca] disabled:opacity-50"
                 >
-                  {loading ? 'Resetting...' : 'Reset Password'}
+                  {loading ? c.forgotSubmitting : c.forgotSubmit}
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setIsForgot(false); setErrorMsg(null); setSuccessMsg(null); }}
-                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer"
+                  onClick={() => {
+                    setIsForgot(false);
+                    resetAlerts();
+                  }}
+                  className="flex-1 cursor-pointer rounded-xl bg-slate-100 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-200"
                 >
-                  {'Cancel'}
+                  {c.cancel}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
       {/* Guest Tutorial Prompt */}
       {guestPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4" id="guest-prompt">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="font-display font-extrabold text-[#111827] text-base mb-1">{'Welcome, Guest!'}</h3>
-            <p className="text-xs text-slate-500 mb-5">{'Would you like a quick step-by-step tutorial on how to predict ridership?'}</p>
-            <div className="flex flex-col sm:flex-row gap-2">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="mb-1 font-display text-base font-extrabold text-[#111827]">{c.guestTitle}</h3>
+            <p className="mb-5 text-xs text-slate-500">{c.guestIntro}</p>
+            <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 onClick={() => startGuestSession(true)}
-                className="flex-1 bg-[#4f46e5] hover:bg-[#4338ca] text-white py-2.5 rounded-xl text-xs font-bold transition cursor-pointer"
+                className="flex-1 cursor-pointer rounded-xl bg-[#4f46e5] py-2.5 text-xs font-bold text-white transition hover:bg-[#4338ca]"
                 id="guest-start-tutorial"
               >
-                {'Yes, start tutorial'}
+                {c.guestYes}
               </button>
               <button
                 onClick={() => startGuestSession(false)}
-                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer"
+                className="flex-1 cursor-pointer rounded-xl bg-slate-100 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-200"
                 id="guest-skip-tutorial"
               >
-                {'Skip for now'}
+                {c.guestSkip}
               </button>
             </div>
           </div>
@@ -484,4 +710,4 @@ export default function LoginView({ onLoginSuccess, initialError = null, redirec
       )}
     </div>
   );
-};
+}

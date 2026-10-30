@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { cleanupForeignServiceWorkers } from './lib/pwa.ts';
+import { initPwaInstall } from './lib/pwaInstall.ts';
 
 /**
  * Registers the generated worker with an explicit version and
@@ -57,6 +58,10 @@ function registerServiceWorker() {
   if (document.readyState === 'complete') register();
   else window.addEventListener('load', register, { once: true });
 }
+
+// Capture `beforeinstallprompt` before React mounts so the login page and the
+// header can both offer installation without missing the event.
+initPwaInstall();
 
 // Drop workers/caches left by other projects or the old hand-written worker
 // before registering the current one.

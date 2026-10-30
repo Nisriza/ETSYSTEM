@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS Users (
   status TEXT NOT NULL DEFAULT 'active'
     CHECK (status IN ('active', 'suspended', 'pending', 'approved', 'rejected')),
   language TEXT DEFAULT 'en'
-    CHECK (language IN ('en', 'ms')),
+    CHECK (language IN ('en', 'bm')),
+  login_count INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

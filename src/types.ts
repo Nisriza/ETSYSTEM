@@ -5,6 +5,7 @@ export interface User {
   role: 'passenger' | 'operator' | 'admin' | 'guest';
   status: string;
   language?: string;
+  login_count?: number | null;
   tutorial_completed?: boolean;
   tutorial_completed_at?: string;
 }
