@@ -13,7 +13,7 @@ import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import multer from 'multer';
 import { getDB } from './src/db/sqlite.ts';
-import { predictRidership, getModelMetrics, resetModel, startTraining, trainingState, getTrainingReport } from './src/lib/predictor.ts';
+import { predictRidership, getModelMetrics, resetModel, startTraining, trainingState, getTrainingReport, getDailyPredictions, PREDICTIONS_CSV_PATH } from './src/lib/predictor.ts';
 
 function normalizeDate(dateStr: string): string {
   const s = dateStr.trim().replace(/^"|"$/g, '');
@@ -78,7 +78,7 @@ const PORT = Number(process.env.PORT) || 3000;
 // In production the SPA is served from a different origin (Vercel) than this
 // API (Render/Railway), so the browser needs explicit permission. CORS_ORIGINS
 // is a comma-separated allowlist, e.g.
-//   CORS_ORIGINS=https://ets-rider.vercel.app,http://localhost:3000
+//   CORS_ORIGINS=https://etsystem-zeta.vercel.app,http://localhost:3000
 // Requests with no Origin header (curl, same-origin, server-to-server) pass.
 const allowedOrigins = (process.env.CORS_ORIGINS || '')
   .split(',')
@@ -160,8 +160,8 @@ function blockGuests(req: any, res: any, next: any) {
 
 /**
  * Increments the successful-login counter used to decide whether the tutorial
- * should be suggested. Returns `null` when the phase-6 migration has not been
- * run yet, so login keeps working without it.
+ * should be suggested. Returns `null` when the `login_count` column is missing,
+ * so login keeps working without it.
  */
 async function bumpLoginCount(db: any, userId: number): Promise<number | null> {
   try {
@@ -286,7 +286,7 @@ app.post('/api/auth/login', async (req, res) => {
       try {
         await db.run('UPDATE Users SET language = ? WHERE id = ?', [languageCode, user.id]);
       } catch {
-        /* phase-6 migration not applied yet */
+        /* language column/check constraint not applied yet */
       }
     }
 
@@ -352,7 +352,7 @@ app.get('/api/auth/me', async (req, res) => {
   try {
     dbUser = await db.get(`${baseSelect}, login_count FROM Users WHERE id = ?`, [sessionUser.id]);
   } catch {
-    // phase-6 migration not applied yet
+    // `login_count` column missing on an older database
     dbUser = await db.get(`${baseSelect} FROM Users WHERE id = ?`, [sessionUser.id]);
   }
 
@@ -537,7 +537,7 @@ app.post('/api/auth/supabase', async (req, res) => {
     if (/column .*(supabase_uid|auth_provider|avatar_url|email)|does not exist/i.test(message)) {
       return res.status(500).json({
         error:
-          'Database migration missing. Run supabase_migration_phase5.sql in the Supabase SQL editor, then try again.',
+          'Database schema missing. Run supabase_schema.sql in the Supabase SQL editor, then try again.',
       });
     }
     res.status(500).json({ error: 'Google sign-in failed. Please try again.' });
@@ -589,15 +589,15 @@ app.post('/api/user/change-password', authenticateToken, blockGuests, async (req
 
 app.post('/api/auth/forgot-password', async (req, res) => {
   try {
-    const { fullname, username, newPassword } = req.body;
-    if (!fullname || !username || !newPassword) {
-      return res.status(400).json({ error: 'Full name, username, and new password are required.' });
+    const { username, newPassword } = req.body;
+    if (!username || !newPassword) {
+      return res.status(400).json({ error: 'Username and new password are required.' });
     }
 
     const db = await getDB();
-    const user = await db.get("SELECT * FROM Users WHERE full_name = ? AND username = ?", [fullname.trim(), username.toLowerCase().trim()]);
+    const user = await db.get('SELECT * FROM Users WHERE username = ?', [username.toLowerCase().trim()]);
     if (!user) {
-      return res.status(404).json({ error: 'No account found matching that full name and username.' });
+      return res.status(404).json({ error: 'No account found with that username.' });
     }
 
     const hasUppercase = /[A-Z]/.test(newPassword);
@@ -1101,6 +1101,85 @@ app.get('/api/holidays', async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ error: 'Failed to query holidays.' });
+  }
+});
+
+// Public iCalendar feed for the Holidays table. Malaysian holiday data has to
+// live in SQL (the prediction engine reads it for the `is_holiday` feature and
+// the dashboard lists it), but Google Calendar can subscribe to this feed so
+// the same rows appear on a phone calendar without any OAuth setup.
+function escapeIcsText(value: unknown): string {
+  return String(value ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n');
+}
+
+function nextIsoDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().split('T')[0];
+}
+
+app.get('/api/holidays.ics', async (req, res) => {
+  try {
+    const db = await getDB();
+    const year = parseInt(String(req.query.year || ''), 10);
+    const stateFilter = typeof req.query.state === 'string' ? req.query.state.trim() : '';
+
+    const where: string[] = ["country = 'Malaysia'"];
+    const params: any[] = [];
+    if (Number.isFinite(year)) where.push(holidayYearWhere(year));
+    if (stateFilter) {
+      where.push("(state = 'ALL' OR state = ?)");
+      params.push(stateFilter);
+    }
+
+    const rows = await db.all(
+      `SELECT * FROM Holidays WHERE ${where.join(' AND ')} ORDER BY ${HOLIDAY_ISO_DATE_SQL} ASC`,
+      params
+    );
+
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const lines: string[] = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//ETS Rider Predict System//Holidays//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      `X-WR-CALNAME:${escapeIcsText('ETS Rider - Malaysian Holidays')}`,
+      'X-WR-TIMEZONE:Asia/Kuala_Lumpur',
+    ];
+
+    for (const h of rows) {
+      const start = toIsoHolidayDate(h.date);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) continue;
+      const details = [h.state && h.state !== 'ALL' ? `State: ${h.state}` : 'National holiday', h.source ? `Source: ${h.source}` : '']
+        .filter(Boolean)
+        .join(' | ');
+      lines.push(
+        'BEGIN:VEVENT',
+        `UID:ets-holiday-${h.id}@ets-rider-predict`,
+        `DTSTAMP:${stamp}`,
+        `DTSTART;VALUE=DATE:${start.replace(/-/g, '')}`,
+        `DTEND;VALUE=DATE:${nextIsoDate(start).replace(/-/g, '')}`,
+        `SUMMARY:${escapeIcsText(h.name)}`,
+        `DESCRIPTION:${escapeIcsText(details)}`,
+        'TRANSP:TRANSPARENT',
+        'END:VEVENT'
+      );
+    }
+
+    lines.push('END:VCALENDAR');
+
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', 'inline; filename="ets-holidays.ics"');
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.send(lines.join('\r\n') + '\r\n');
+  } catch (error) {
+    console.error('Holiday feed error:', error);
+    res.status(500).send('Failed to generate the holiday calendar feed.');
   }
 });
 
@@ -2075,6 +2154,43 @@ app.get('/api/admin/model/download-pkl', authenticateToken, async (req: any, res
   } catch (error: any) {
     console.error('Download model error:', error?.message || error);
     res.status(500).json({ error: 'Failed to download model.' });
+  }
+});
+
+// PER-DATE DEMAND FORECAST — rewritten on every training run by ml/train.py
+app.get('/api/admin/predictions.csv', authenticateToken, async (req: any, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Access denied.' });
+  try {
+    if (!fs.existsSync(PREDICTIONS_CSV_PATH)) {
+      return res.status(404).json({ error: 'No per-date prediction file yet. Run training first.' });
+    }
+    res.download(PREDICTIONS_CSV_PATH, 'ets_predictions_by_date.csv');
+  } catch (error: any) {
+    console.error('Download per-date predictions error:', error?.message || error);
+    res.status(500).json({ error: 'Failed to download per-date predictions.' });
+  }
+});
+
+app.get('/api/admin/predictions/summary', authenticateToken, async (req: any, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Access denied.' });
+  try {
+    if (!fs.existsSync(PREDICTIONS_CSV_PATH)) {
+      return res.json({ exists: false, rows: [] });
+    }
+    const daily = getModelMetrics().daily;
+    res.json({
+      exists: true,
+      generatedAt: daily?.generatedAt ?? null,
+      from: daily?.from ?? null,
+      to: daily?.to ?? null,
+      dates: daily?.dates ?? null,
+      thresholds: daily?.thresholds ?? null,
+      holdoutMae: daily?.holdoutMae ?? null,
+      rows: getDailyPredictions(12),
+    });
+  } catch (error: any) {
+    console.error('Per-date predictions summary error:', error?.message || error);
+    res.status(500).json({ error: 'Failed to read per-date predictions.' });
   }
 });
 

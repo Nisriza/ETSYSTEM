@@ -6,7 +6,7 @@ import {
   RotateCw, RefreshCw, CheckCircle2, ChevronRight, Sparkles, Server, 
   TrendingUp, BarChart, Lock, AlertCircle, AlertTriangle, Play, Loader2, DownloadCloud, Settings, UploadCloud, FileSpreadsheet
 } from 'lucide-react';
-import { apiFetch } from '../lib/api.ts';
+import { apiFetch, apiUrl } from '../lib/api.ts';
 
 interface AdminViewProps {
   user: User;
@@ -79,6 +79,16 @@ export default function AdminView({ user, token }: AdminViewProps) {
     notes: string;
     processingTime?: number;
   } | null>(null);
+  const [dailySummary, setDailySummary] = useState<{
+    exists: boolean;
+    generatedAt: string | null;
+    from: string | null;
+    to: string | null;
+    dates: number | null;
+    thresholds: { lowMax: number; mediumMax: number; highMax: number } | null;
+    holdoutMae: number | null;
+    rows: { date: string; actual_ridership: number; predicted_ridership: number; error: number; demand_level: 'Low' | 'Medium' | 'High' | 'Very High' }[];
+  } | null>(null);
   const [trainingModel, setTrainingModel] = useState(false);
   const [trainLogs, setTrainLogs] = useState<string[]>([]);
   const [trainProgress, setTrainProgress] = useState(0);
@@ -111,6 +121,7 @@ export default function AdminView({ user, token }: AdminViewProps) {
     if (activeSubTab === 'holidays') fetchHolidays();
     if (activeSubTab === 'model') {
       fetchModelMetrics();
+      fetchDailySummary();
       apiFetch('/api/admin/dataset', { headers: { 'Authorization': `Bearer ${token}` } })
         .then(r => r.ok ? r.json() : null)
         .then(d => setDatasetExists(d?.exists ?? false))
@@ -304,6 +315,16 @@ export default function AdminView({ user, token }: AdminViewProps) {
       showToast('Holiday sync failed. Check the server connection.');
     } finally {
       setSyncingHolidays(false);
+    }
+  };
+
+  const handleCopyHolidayFeed = async () => {
+    const feedUrl = apiUrl('/api/holidays.ics');
+    try {
+      await navigator.clipboard.writeText(feedUrl);
+      showToast('Holiday feed URL copied. In Google Calendar use Other calendars → From URL.');
+    } catch {
+      window.prompt('Copy this holiday feed URL:', feedUrl);
     }
   };
 
@@ -552,6 +573,39 @@ export default function AdminView({ user, token }: AdminViewProps) {
     }
   };
 
+  const fetchDailySummary = async () => {
+    try {
+      const res = await apiFetch('/api/admin/predictions/summary', { headers: { 'Authorization': `Bearer ${token}` } });
+      if (res.ok) setDailySummary(await res.json());
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDownloadPredictionsCsv = async () => {
+    try {
+      const res = await apiFetch('/api/admin/predictions.csv', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Failed to download per-date predictions.');
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ets_predictions_by_date.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      alert(e.message || 'Failed to download per-date predictions.');
+    }
+  };
+
   const triggerRetrain = async () => {
     setTrainingModel(true);
     setTrainLogs(['Starting training...']);
@@ -605,6 +659,7 @@ export default function AdminView({ user, token }: AdminViewProps) {
           });
           const metrics = await metricsRes.json();
           setModelMetrics(metrics);
+          fetchDailySummary();
 
           setTrainLogs(prev => [
             ...prev,
@@ -635,6 +690,7 @@ export default function AdminView({ user, token }: AdminViewProps) {
       if (res.ok) {
         showToast('Model reset successfully.');
         setModelMetrics(d.metrics);
+        setDailySummary(null);
         setTrainLogs([]);
         setTrainProgress(0);
       } else {
@@ -1250,6 +1306,18 @@ export default function AdminView({ user, token }: AdminViewProps) {
                   {syncingHolidays ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DownloadCloud className="h-3.5 w-3.5" />}
                   {syncingHolidays ? 'Syncing...' : `Sync ${new Date().getFullYear()} Holidays`}
                 </button>
+                <button
+                  id="btn-holiday-feed"
+                  type="button"
+                  onClick={handleCopyHolidayFeed}
+                  className="mt-2 w-full flex items-center justify-center gap-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-xl py-2 text-xs font-bold transition cursor-pointer"
+                >
+                  <Calendar className="h-3.5 w-3.5" />
+                  {'Copy Google Calendar feed URL'}
+                </button>
+                <p className="mt-2 text-[10px] text-slate-400 leading-relaxed">
+                  {'In Google Calendar choose Other calendars → From URL and paste this link. The feed reflects every holiday in this table.'}
+                </p>
               </div>
             </div>
 
@@ -1715,6 +1783,83 @@ export default function AdminView({ user, token }: AdminViewProps) {
                   <DownloadCloud className="h-4 w-4" />
                   {'Download Report (.txt)'}
                 </button>
+              </div>
+            )}
+
+            {/* Per-date demand forecast — regenerated on every training run */}
+            {dailySummary?.exists && dailySummary.thresholds && !trainingModel && (
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6" id="daily-forecast-panel">
+                <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                  <div>
+                    <h3 className="font-display font-extrabold text-slate-800 text-lg">{'Per-Date Demand Forecast'}</h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {'One row per calendar date from the training dataset. Rewritten on every retrain.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    id="btn-download-predictions-csv"
+                    onClick={handleDownloadPredictionsCsv}
+                    className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+                  >
+                    <DownloadCloud className="h-4 w-4" />
+                    {'Download CSV'}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 text-center">
+                  <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">{'Dates covered'}</p>
+                    <p className="text-lg font-extrabold text-slate-800 font-mono mt-1">{dailySummary.dates ?? '—'}</p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">{'Range'}</p>
+                    <p className="text-[11px] font-extrabold text-slate-800 font-mono mt-1.5">{dailySummary.from ?? '—'} → {dailySummary.to ?? '—'}</p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">{'Forecast MAE'}</p>
+                    <p className="text-lg font-extrabold text-slate-800 font-mono mt-1">{dailySummary.holdoutMae ?? '—'}</p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">{'Updated'}</p>
+                    <p className="text-[11px] font-extrabold text-slate-800 font-mono mt-1.5">{dailySummary.generatedAt ? new Date(dailySummary.generatedAt).toLocaleString() : '—'}</p>
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-slate-500 font-semibold mb-3">
+                  {'Daily demand bands'}: {'Low'} ≤ {dailySummary.thresholds.lowMax.toLocaleString()} · {'Medium'} ≤ {dailySummary.thresholds.mediumMax.toLocaleString()} · {'High'} ≤ {dailySummary.thresholds.highMax.toLocaleString()} · {'Very High'} {'above'} {'(quartiles of actual daily totals in the training dataset)'}
+                </p>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-100">
+                  <table className="min-w-full text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 text-left">
+                        <th className="px-4 py-2.5 font-extrabold text-slate-500 uppercase tracking-wider text-[10px]">{'Date'}</th>
+                        <th className="px-4 py-2.5 font-extrabold text-slate-500 uppercase tracking-wider text-[10px] text-right">{'Actual'}</th>
+                        <th className="px-4 py-2.5 font-extrabold text-slate-500 uppercase tracking-wider text-[10px] text-right">{'Predicted'}</th>
+                        <th className="px-4 py-2.5 font-extrabold text-slate-500 uppercase tracking-wider text-[10px] text-center">{'Demand Level'}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dailySummary.rows.map((r) => (
+                        <tr key={r.date} className="border-t border-slate-100">
+                          <td className="px-4 py-2 font-mono font-semibold text-slate-700">{r.date}</td>
+                          <td className="px-4 py-2 font-mono text-slate-600 text-right">{r.actual_ridership.toLocaleString()}</td>
+                          <td className="px-4 py-2 font-mono text-slate-600 text-right">{r.predicted_ridership.toLocaleString()}</td>
+                          <td className="px-4 py-2 text-center">
+                            <span className={`inline-block px-2.5 py-0.5 rounded-full border text-[10px] font-extrabold ${
+                              r.demand_level === 'Low' ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : r.demand_level === 'Medium' ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : r.demand_level === 'High' ? 'bg-orange-50 text-orange-700 border-orange-200'
+                              : 'bg-red-50 text-red-700 border-red-200'
+                            }`}>{r.demand_level}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[10px] text-slate-400 font-semibold mt-2">{'Showing the 12 most recent dates. The CSV contains every date.'}</p>
               </div>
             )}
 

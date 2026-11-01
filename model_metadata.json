@@ -1,1 +1,27 @@
-{"mae": 3.39, "rmse": 8.93, "r2": 0.78, "trainedAt": "2026-10-10T01:55:37.333851", "totalRecords": 2806323, "processingTime": 1112.0, "notes": "Random Forest trained on 2806323 records from 7 CSV file(s) (2020-2026)."}
+{
+  "mae": 3.39,
+  "rmse": 8.93,
+  "r2": 0.78,
+  "trainedAt": "2026-10-10T01:55:37.333851",
+  "totalRecords": 2806323,
+  "processingTime": 1112.0,
+  "notes": "Random Forest trained on 2806323 records from 7 CSV file(s) (2020-2026).",
+  "daily": {
+    "dates": 2176,
+    "from": "2020-10-15",
+    "to": "2026-09-29",
+    "holdoutMae": 4283.3,
+    "holdoutRmse": 5595.7,
+    "holdoutR2": -0.85,
+    "holdoutDates": 436,
+    "generatedAt": "2026-11-02T01:33:42.727005",
+    "file": "ml/predictions_by_date.csv",
+    "model": "ml/model_daily.pkl",
+    "thresholds": {
+      "lowMax": 6998,
+      "mediumMax": 11004,
+      "highMax": 12501
+    },
+    "levelMethod": "Quartiles of actual daily ridership in the training dataset."
+  }
+}

@@ -6,6 +6,21 @@ import util from 'util';
 
 const execAsync = util.promisify(exec);
 
+export interface DailyPredictionMetrics {
+  dates: number;
+  from: string;
+  to: string;
+  holdoutMae: number;
+  holdoutRmse: number;
+  holdoutR2: number;
+  holdoutDates: number;
+  generatedAt: string;
+  file: string;
+  model: string;
+  thresholds: { lowMax: number; mediumMax: number; highMax: number };
+  levelMethod: string;
+}
+
 export interface ModelMetrics {
   mae: number;
   rmse: number;
@@ -14,6 +29,8 @@ export interface ModelMetrics {
   totalRecords: number;
   notes: string;
   processingTime?: number;
+  /** Per-date forecast summary, regenerated on every training run. */
+  daily?: DailyPredictionMetrics;
 }
 
 const METADATA_PATH = path.resolve(process.cwd(), 'model_metadata.json');
@@ -57,13 +74,52 @@ export function saveModelMetrics(metrics: ModelMetrics) {
   }
 }
 
+export const PREDICTIONS_CSV_PATH = path.resolve(process.cwd(), 'ml', 'predictions_by_date.csv');
+
+export interface DailyPredictionRow {
+  date: string;
+  actual_ridership: number;
+  predicted_ridership: number;
+  error: number;
+  demand_level: 'Low' | 'Medium' | 'High' | 'Very High';
+}
+
+/**
+ * Reads the per-date prediction CSV written by `ml/train.py`.
+ * `limit` returns only the most recent rows (the CSV is chronological).
+ */
+export function getDailyPredictions(limit?: number): DailyPredictionRow[] {
+  try {
+    if (!fs.existsSync(PREDICTIONS_CSV_PATH)) return [];
+    const lines = fs.readFileSync(PREDICTIONS_CSV_PATH, 'utf8').trim().split('\n');
+    const dataLines = lines.slice(1).filter(l => l.trim());
+    const rows: DailyPredictionRow[] = [];
+    for (const line of dataLines) {
+      const [date, actual, predicted, error, level] = line.split(',').map(v => v.trim());
+      if (!date) continue;
+      rows.push({
+        date,
+        actual_ridership: parseInt(actual, 10) || 0,
+        predicted_ridership: parseInt(predicted, 10) || 0,
+        error: parseInt(error, 10) || 0,
+        demand_level: (level || 'Low') as DailyPredictionRow['demand_level'],
+      });
+    }
+    return typeof limit === 'number' && limit > 0 ? rows.slice(-limit) : rows;
+  } catch (error) {
+    console.error("Failed to read per-date predictions:", error);
+    return [];
+  }
+}
+
 export function resetModel(): ModelMetrics {
   try {
     if (fs.existsSync(METADATA_PATH)) fs.unlinkSync(METADATA_PATH);
-    const modelPath = path.resolve(process.cwd(), 'ml', 'model.pkl');
-    const colsPath = path.resolve(process.cwd(), 'ml', 'model_cols.pkl');
-    if (fs.existsSync(modelPath)) fs.unlinkSync(modelPath);
-    if (fs.existsSync(colsPath)) fs.unlinkSync(colsPath);
+    const mlDir = path.resolve(process.cwd(), 'ml');
+    ['model.pkl', 'model_cols.pkl', 'model_daily.pkl', 'predictions_by_date.csv'].forEach(f => {
+      const p = path.resolve(mlDir, f);
+      if (fs.existsSync(p)) fs.unlinkSync(p);
+    });
   } catch (error) {
     console.error("Failed to delete model files:", error);
   }
@@ -231,8 +287,24 @@ export function getTrainingReport(): string {
     '',
     `Notes: ${metrics.notes}`,
     '',
-    '===========================================',
   ];
+
+  if (metrics.daily && metrics.daily.dates > 0) {
+    const d = metrics.daily;
+    lines.push(
+      '--- Per-Date Demand Forecast ---',
+      `Dates Covered:    ${d.dates} (${d.from} to ${d.to})`,
+      `Forecast MAE:     ${d.holdoutMae} riders/day (time-aware holdout, ${d.holdoutDates} dates)`,
+      `Forecast RMSE:    ${d.holdoutRmse}`,
+      `Forecast R²:      ${d.holdoutR2}`,
+      `Demand Bands:     Low <= ${d.thresholds.lowMax} | Medium <= ${d.thresholds.mediumMax} | High <= ${d.thresholds.highMax} | Very High`,
+      `Band Method:      ${d.levelMethod}`,
+      `Output File:      ${d.file} (rewritten on every training run)`,
+      '',
+    );
+  }
+
+  lines.push('===========================================');
   return lines.join('\r\n');
 }
 

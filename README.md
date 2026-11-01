@@ -12,7 +12,7 @@ Riders can check how busy a route is likely to be, plan around public holidays, 
 |---|---|
 | Ridership prediction | Forecasts passenger counts for an origin → destination pair using a Python/scikit-learn model with a statistical fallback. Returns a demand level (Low → Very High) |
 | Trip planning | Route availability check, holiday-aware recommendations, "consider travelling on …" alternatives, KTMB booking link |
-| Malaysian public holidays | National holidays synced from [Nager.Date](https://date.nager.at), plus admin-managed state holidays |
+| Malaysian public holidays | National holidays synced from [Nager.Date](https://date.nager.at), admin-managed state holidays, and a public iCalendar feed for Google Calendar |
 | Saved trips & feedback | Passenger saved trips and crowd-level feedback |
 | Operator reports | Monthly report generation and CSV export |
 | Admin console | User management, operator approval, stations/routes CRUD, holidays CRUD + sync, dataset upload/validation, model retrain/reset/download |
@@ -49,17 +49,19 @@ cp .env.example .env.local     # Windows: copy .env.example .env.local
 # fill in the Supabase values in .env.local
 ```
 
-Run the SQL files in the Supabase **SQL Editor**, in order:
+Run **one** file in the Supabase **SQL Editor**: `supabase_schema.sql`. It creates the
+`exec_sql` RPC, all 8 tables, indexes, the station/route/holiday seed data, and the
+three seed accounts below. The old `supabase_migration_phase1..6.sql` files are no
+longer needed and can be ignored.
 
-```text
-supabase_schema.sql
-supabase_migration_phase1.sql
-supabase_migration_phase2.sql
-supabase_migration_phase3.sql
-supabase_migration_phase4.sql
-supabase_migration_phase5.sql
-supabase_migration_phase6.sql
-```
+| Role | Username | Password |
+|---|---|---|
+| Admin | `ets_admin` | `Admin@12345!` |
+| Operator | `ets_operator` | `Operator@12345!` |
+| Passenger | `ets_passenger` | `Passenger@12345!` |
+
+> Change these passwords after the first sign-in. Forgot-password only asks for the
+> username plus the new password.
 
 Then:
 
@@ -82,7 +84,7 @@ All values live in `.env.local` (git-ignored). `.env.local` overrides `.env`; re
 | `SUPABASE_URL` | ✅ | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Server-only key used by the SQL adapter. **Never** expose it to the browser |
 | `SUPABASE_ANON_KEY` | optional | Used to verify Supabase access tokens in the Google auth bridge (service role also works) |
-| `CORS_ORIGINS` | production | Comma-separated browser origins allowed to call the API, e.g. `https://ets-rider.vercel.app,http://localhost:3000` |
+| `CORS_ORIGINS` | production | Comma-separated browser origins allowed to call the API, e.g. `https://etsystem-zeta.vercel.app,http://localhost:3000` |
 | `GEMINI_API_KEY` | optional | Enables the AI assistant |
 | `PORT` | optional | Injected by Render/Railway; defaults to `3000` |
 
@@ -121,7 +123,7 @@ Nothing else in the app changed: every protected route still uses the existing `
 5. **Authorised JavaScript origins**:
    ```text
    http://localhost:3000
-   https://<your-vercel-app>.vercel.app
+   https://etsystem-zeta.vercel.app
    ```
 6. Copy the **Client ID** and **Client Secret**.
 
@@ -129,34 +131,41 @@ Nothing else in the app changed: every protected route still uses the existing `
 
 1. **Authentication → Providers → Google**: enable it and paste the Client ID / Secret.
 2. **Authentication → URL Configuration**:
-   - Site URL: `https://<your-vercel-app>.vercel.app`
-   - Redirect URLs: `http://localhost:3000`, `http://localhost:3000/bm`, `https://<your-vercel-app>.vercel.app`, `https://<your-vercel-app>.vercel.app/bm`
-3. Run `supabase_migration_phase5.sql` (adds `Users.email`, `supabase_uid`, `auth_provider`, `avatar_url`) and `supabase_migration_phase6.sql` (adds `login_count`, backfills existing accounts, and aligns the `language` check constraint with `en`/`bm`).
+   - Site URL: `https://etsystem-zeta.vercel.app`
+   - Redirect URLs: `http://localhost:3000`, `http://localhost:3000/bm`, `https://etsystem-zeta.vercel.app`, `https://etsystem-zeta.vercel.app/bm`
+3. `supabase_schema.sql` already contains every column the Google bridge needs (`email`, `supabase_uid`, `auth_provider`, `avatar_url`) and the tutorial columns (`login_count`, `tutorial_completed`). No migrations to run.
 4. Copy **Project URL** and the **anon** key into `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` on Vercel and/or `SUPABASE_URL` / `SUPABASE_ANON_KEY` on the API host; copy the **service_role** key into `SUPABASE_SERVICE_ROLE_KEY` on the API host only.
 
 The button is rendered on **both** login screens (`/` and `/bm`). If the `VITE_` values were not present when Vercel built the SPA, the browser asks the API host for the public URL/anon key via `GET /api/auth/config`, so Google sign-in still works instead of disappearing from one build. Only the anon key is ever returned — never the service-role key.
 
 ---
 
-## Public holidays: why Nager.Date
+## Public holidays and Google Calendar
 
-Holidays come from **[Nager.Date](https://date.nager.at)** (`GET /api/v3/PublicHolidays/{year}/MY`), called server-side.
+**Keep the `Holidays` table.** It is not just a display list: `predictRidership()` reads it to set the `is_holiday` feature, and the passenger/admin views list the same rows. Google Calendar cannot replace it because the prediction engine must work offline and without a user signed into Google.
 
-| | Nager.Date | Google Calendar API |
-|---|---|---|
-| API key | none | required (or OAuth `calendar.readonly`) |
-| Consent screen / scopes | none | extra scope per user |
-| Quota | generous, no per-user limit | per-project quota |
-| Malaysian national holidays | ✅ | ✅ |
-| State-level holidays | ❌ | ❌ |
+The integration is **one-way, no OAuth**: the app publishes the table as an iCalendar feed and Google Calendar subscribes to it.
 
-Both sources only provide **national** holidays, so Google Calendar would add a key, an OAuth scope and a quota without improving the data. National holidays are therefore synced from Nager.Date and **state holidays are entered manually by an admin** (the `Holidays.state` column, default `ALL`).
+```text
+GET /api/holidays.ics                 # all holidays
+GET /api/holidays.ics?year=2026       # one year
+GET /api/holidays.ics?state=Selangor  # national + that state
+```
+
+- In **Admin → Holidays → Copy Google Calendar feed URL**, copy the link.
+- In Google Calendar: **Other calendars → From URL**, paste the link, then **Add calendar**.
+- Changes made in the admin holiday form (add/edit/delete or **Sync** from Nager.Date) appear in the subscribed calendar after Google's next refresh (usually minutes to a few hours).
+
+National holidays are still imported from **[Nager.Date](https://date.nager.at)** (`GET /api/v3/PublicHolidays/{year}/MY`), called server-side. Nager.Date needs no API key and no per-user consent. State-level holidays are entered manually by an admin (`Holidays.state`, default `ALL`).
 
 Endpoints:
 
 - `GET /api/holidays?scope=year` — this year's national holidays (ISO dates)
 - `GET /api/holidays?scope=year&state=Selangor` — national **plus** that state's holidays
 - `POST /api/admin/holidays/sync` — admin-only, imports the current year from Nager.Date. Existing rows are never overwritten, and the upstream response is cached for one hour. The **Sync holidays** button in Admin → Holidays calls this.
+- `GET /api/holidays.ics` — public iCalendar feed for Google Calendar / Apple Calendar.
+
+> Write-back (creating events in a user's personal Google Calendar) is deliberately **not** enabled: it needs the `calendar.events` OAuth scope, token storage and a consent screen review, while the prediction engine would still need the local table. The read-only feed gives the same result without any of that.
 
 ---
 
@@ -164,9 +173,9 @@ Endpoints:
 
 - The tutorial follows the current UI language: `/bm` shows Malay content **and** Malay controls (`Langkau`, `Kembali`, `Seterusnya`, `Selesai`), while `/` shows English.
 - Registered users are offered the tutorial automatically only on their first successful login (`login_count === 1` with `tutorial_completed` false).
-- `supabase_migration_phase6.sql` backfills existing accounts to `login_count = 1`, so their next login counts as #2 and the tutorial is not forced on them. **Help** in the header opens it at any time.
-- Closing or skipping the tutorial stores `tutorial_completed`, and a per-session guard prevents a page refresh from reopening the suggestion.
-- If the phase-6 migration has not been run, `login_count` is `null`; the app then deliberately does not auto-open the tutorial, and login continues to work normally.
+- Seed accounts start at `login_count = 0`, so their first login counts as #1 and the tutorial is offered once. **Help** in the header opens it at any time.
+- Closing or skipping the tutorial stores `tutorial_completed` (with the bearer token), and a per-session guard prevents a page refresh from reopening the suggestion.
+- If `login_count` is `null` (an account created outside the schema), the app deliberately does not auto-open the tutorial, and login continues to work normally.
 - Guest accounts receive the optional prompt at sign-in. Their header shows **Sign In / Register** (**Log Masuk / Daftar**) instead of Logout, and the button returns them to the login screen.
 
 ---
@@ -188,6 +197,23 @@ Endpoints:
 
 ---
 
+## Per-date demand forecast CSV
+
+Every training run also trains a small **date-level model** on the daily totals of the combined `train/ets_YYYY.csv` datasets and writes **`ml/predictions_by_date.csv`** — one row per calendar date in the dataset:
+
+```csv
+date,actual_ridership,predicted_ridership,error,demand_level
+2026-09-29,13612,14174,562,Very High
+```
+
+- The file is **rewritten on every retrain**, so new training data produces new predictions.
+- The route-level thresholds (50/100/250) do not apply to daily totals, so the per-date `demand_level` uses the **quartiles of the actual daily totals** in the training data (Low ≤ Q1, Medium ≤ Q2, High ≤ Q3, otherwise Very High). The exact bands are written into `model_metadata.json` under `daily.thresholds` and shown in Admin → Model.
+- Admin → Model shows the **Per-Date Demand Forecast** panel (latest 12 dates + bands + forecast MAE) and a **Download CSV** button. API: `GET /api/admin/predictions.csv` (download) and `GET /api/admin/predictions/summary` (preview), both admin-only.
+- The model used for this (`ml/model_daily.pkl`) is separate from the route model; `/api/predict` and the search flow are untouched.
+- Both artifacts are gitignored runtime outputs and, like `model.pkl`, need a persistent disk on the API host to survive redeploys.
+
+---
+
 ## Deployment
 
 This app has a Node server that spawns Python, reads/writes `model.pkl` (~143 MB) and `train/`/`historical/` CSVs, and runs multi-minute retraining. That cannot run on serverless functions, so it deploys as **two pieces**:
@@ -197,8 +223,8 @@ This app has a Node server that spawns Python, reads/writes `model.pkl` (~143 MB
 - Build: `npm install`
 - Start: `npm run build && npm start` (or `npm run dev` for a demo)
 - Environment: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `CORS_ORIGINS`, `GEMINI_API_KEY`
-- Attach a **persistent disk** and install Python 3 + the ML dependencies so predictions and retraining survive restarts.
-- Note the public URL, e.g. `https://ets-rider-api.onrender.com`.
+- Attach a **persistent disk** and install Python 3 + the ML dependencies so predictions, `ml/predictions_by_date.csv` and retraining survive restarts. The seed `train/ets_YYYY.csv` files travel with the repo (they reappear on every deploy), but uploaded CSVs and generated files do **not** — Vercel never sees them at all, it only hosts the built SPA.
+- Note the public URL, e.g. `https://etsystem-api.onrender.com`.
 
 ### 2. Frontend — Vercel
 
@@ -207,7 +233,7 @@ This app has a Node server that spawns Python, reads/writes `model.pkl` (~143 MB
 Set in **Project → Settings → Environment Variables**:
 
 ```text
-VITE_API_BASE_URL=https://ets-rider-api.onrender.com
+VITE_API_BASE_URL=https://etsystem-api.onrender.com
 VITE_SUPABASE_URL=https://<project-ref>.supabase.co
 VITE_SUPABASE_ANON_KEY=<anon key>
 ```
@@ -246,7 +272,7 @@ src/
   db/sqlite.ts                Supabase SQL adapter (exec_sql RPC)
 ml/                           train.py / predict.py / model artefacts
 public/icons/                 Generated PWA icons
-supabase_*.sql                Schema + phase migrations (run in order)
+supabase_schema.sql           Fresh schema + seed data (the only SQL file to run)
 vite.config.ts                Vite + VitePWA configuration
 vercel.json                   SPA hosting config for the Vercel frontend
 ```
@@ -258,13 +284,16 @@ vercel.json                   SPA hosting config for the Vercel frontend
 | Symptom | Fix |
 |---|---|
 | `Supabase is not configured` | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` missing from `.env.local` |
+| **"Network error. Please try again."** on the deployed site (guest *and* normal login) | The SPA has no API host. `VITE_API_BASE_URL` was empty at build time, so `/api/...` hits Vercel and returns a plain-text 404. Set it on Vercel and **redeploy with a rebuild** |
+| `GET/POST https://<vercel-app>/api/...` returns `404 text/plain` | Same cause: Vercel only hosts the SPA. Deploy the Express/Python API to Render/Railway/Fly and point `VITE_API_BASE_URL` at it |
 | Google button missing in production | Set `SUPABASE_URL` + `SUPABASE_ANON_KEY` on the API host, or `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` on Vercel (then rebuild) |
 | Google button appears only in one language / one page shows an old app | A stale PWA worker is serving an old cached `/` shell. Reload once (the new worker replaces itself), or clear site data. The versioned SW registration in `src/main.tsx` prevents it recurring |
-| `Database migration missing` on Google login | Run `supabase_migration_phase5.sql` |
-| Tutorial never opens automatically | Run `supabase_migration_phase6.sql`; without the `login_count` column the app intentionally skips the automatic suggestion. Users can still open it from **Help** |
-| Tutorial reopens on every refresh | The per-session guard only lasts for the tab session. Close/skip the tutorial once so `tutorial_completed` is stored, or run `supabase_migration_phase6.sql` |
+| `Database schema missing` on Google login | Run `supabase_schema.sql` in the new Supabase project |
+| Tutorial never opens automatically | Check `Users.login_count` is not `null`; `supabase_schema.sql` sets it to `0` for the seed accounts. Users can still open it from **Help** |
+| Tutorial reopens on every refresh | The per-session guard only lasts for the tab session. Close/skip the tutorial once so `tutorial_completed` is stored (this now sends the bearer token) |
 | Install button shows instructions instead of a prompt | Expected on iOS/iPadOS/Safari and other non-Chromium browsers. Chromium on `https://`/`localhost` shows the native prompt when the app is installable |
 | Holidays list empty | Admin → Holidays → **Sync … Holidays**, or check that the `Holidays` table has rows |
 | `redirect_uri_mismatch` from Google | The Google client's redirect URI must be `https://<ref>.supabase.co/auth/v1/callback` |
+| Google sign-in returns to the app but nothing happens | Supabase → Auth → URL Configuration must list `https://etsystem-zeta.vercel.app` and `/bm`; the API host needs `SUPABASE_URL` + `SUPABASE_ANON_KEY` for `POST /api/auth/supabase` |
 | API calls fail only on the deployed site | `VITE_API_BASE_URL` wrong, or the API host's `CORS_ORIGINS` does not include the Vercel origin |
 | Predictions fall back to statistics | Python or `ml/model.pkl` unavailable on the API host |
