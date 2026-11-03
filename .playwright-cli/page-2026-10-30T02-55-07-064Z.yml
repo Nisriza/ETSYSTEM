@@ -1,0 +1,44 @@
+- generic [ref=e4]:
+  - complementary [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e7]: Electric Train Service
+      - generic [ref=e12]:
+        - button "EN" [ref=e13] [cursor=pointer]
+        - button "BM" [ref=e14] [cursor=pointer]
+    - generic [ref=e15]:
+      - heading "ETS Rider Predict System" [level=1] [ref=e21]
+      - paragraph [ref=e22]: Public Transport Ridership Prediction & Travel Planning System
+    - list [ref=e23]:
+      - listitem [ref=e24]:
+        - generic [ref=e28]: Forecast ridership by route, date and time
+      - listitem [ref=e29]:
+        - generic [ref=e33]: Plan around public holidays and peak demand
+      - listitem [ref=e34]:
+        - generic [ref=e38]: Save trips and share crowd feedback
+    - button "Install Web App See how to install on this device" [ref=e40] [cursor=pointer]:
+      - generic [ref=e45]:
+        - generic [ref=e46]: Install Web App
+        - generic [ref=e47]: See how to install on this device
+  - generic [ref=e50]:
+    - generic [ref=e51]:
+      - heading "Sign In" [level=2] [ref=e52]
+      - paragraph [ref=e53]: Sign in to continue to your dashboard.
+    - generic [ref=e54]:
+      - paragraph [ref=e55]: Quick access
+      - generic [ref=e56]:
+        - button "Sign in with Google" [ref=e58] [cursor=pointer]
+        - button "Continue as Guest" [ref=e64] [cursor=pointer]
+      - paragraph [ref=e68]: "Guests get limited access: search, prediction and holiday viewing."
+      - generic [ref=e71]: or use your account
+    - generic [ref=e73]:
+      - generic [ref=e74]:
+        - generic [ref=e75]: Username
+        - textbox "Username" [ref=e80]:
+          - /placeholder: Enter username
+      - generic [ref=e81]:
+        - generic [ref=e82]: Password
+        - textbox "Password" [ref=e87]:
+          - /placeholder: Enter password
+      - button "Sign In Now" [ref=e88] [cursor=pointer]
+      - button "Forgot Password?" [ref=e92] [cursor=pointer]
+    - button "Don't have an account? Register here" [ref=e94] [cursor=pointer]

@@ -145,11 +145,17 @@ export function getTutorialStepsForRole(role: TutorialRole, lang: TutorialLang =
   return PASSENGER[language];
 }
 
-export async function markTutorialCompleted(completed: boolean): Promise<{ success: boolean; error?: string }> {
+export async function markTutorialCompleted(
+  completed: boolean,
+  token: string
+): Promise<{ success: boolean; error?: string }> {
   try {
     const res = await apiFetch('/api/user/tutorial', {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ completed }),
     });
     if (!res.ok) {

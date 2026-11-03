@@ -1,10 +1,13 @@
 -- ==========================================================
--- ETS Rider Predict System - Complete Supabase Schema & Seed Data
--- Run this entire script in Supabase SQL Editor
+-- ETS Rider Predict System - Supabase Schema (fresh database)
+-- Run this whole script once in the new Supabase project's SQL Editor.
+--
+-- This is the ONLY schema file needed for a clean install. It replaces the
+-- old supabase_schema.sql + supabase_migration_phase1..6.sql sequence.
 -- ==========================================================
 
 -- ==========================================================
--- 1. exec_sql RPC Function (required by the application code)
+-- 1. exec_sql RPC (required by src/db/sqlite.ts)
 -- ==========================================================
 CREATE OR REPLACE FUNCTION exec_sql(query TEXT)
 RETURNS SETOF JSONB
@@ -23,10 +26,11 @@ END;
 $$;
 
 -- ==========================================================
--- 2. TABLES CREATION
+-- 2. TABLES (8 core tables only)
 -- ==========================================================
 
--- Users Table
+-- Accounts for all three roles. Google sign-in links to these rows through
+-- supabase_uid / email, so no separate accounts table is needed.
 CREATE TABLE IF NOT EXISTS Users (
   id SERIAL PRIMARY KEY,
   full_name TEXT NOT NULL,
@@ -38,38 +42,39 @@ CREATE TABLE IF NOT EXISTS Users (
     CHECK (status IN ('active', 'suspended', 'pending', 'approved', 'rejected')),
   language TEXT DEFAULT 'en'
     CHECK (language IN ('en', 'bm')),
+  email TEXT,
+  supabase_uid UUID,
+  auth_provider TEXT DEFAULT 'password',
+  avatar_url TEXT,
   login_count INTEGER NOT NULL DEFAULT 0,
+  tutorial_completed BOOLEAN NOT NULL DEFAULT FALSE,
+  tutorial_completed_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Stations Table
+CREATE UNIQUE INDEX IF NOT EXISTS uq_users_supabase_uid
+  ON Users (supabase_uid) WHERE supabase_uid IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email_lower
+  ON Users (LOWER(email)) WHERE email IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_email ON Users (LOWER(email));
+
+-- Stations served by ETS.
 CREATE TABLE IF NOT EXISTS Stations (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
   state TEXT NOT NULL DEFAULT 'Other'
 );
 
--- Routes Table (for route availability checks)
+-- Routes connects stations. Used for availability checks and admin CRUD.
+-- (The old duplicate RouteConnections table is intentionally gone.)
 CREATE TABLE IF NOT EXISTS Routes (
   id SERIAL PRIMARY KEY,
-  origin_station_id INTEGER NOT NULL,
-  destination_station_id INTEGER NOT NULL,
-  FOREIGN KEY (origin_station_id) REFERENCES Stations(id) ON DELETE CASCADE,
-  FOREIGN KEY (destination_station_id) REFERENCES Stations(id) ON DELETE CASCADE,
+  origin_station_id INTEGER NOT NULL REFERENCES Stations(id) ON DELETE CASCADE,
+  destination_station_id INTEGER NOT NULL REFERENCES Stations(id) ON DELETE CASCADE,
   UNIQUE(origin_station_id, destination_station_id)
 );
 
--- RouteConnections Table (admin-managed connections)
-CREATE TABLE IF NOT EXISTS RouteConnections (
-  id SERIAL PRIMARY KEY,
-  origin_station_id INTEGER NOT NULL,
-  destination_station_id INTEGER NOT NULL,
-  FOREIGN KEY (origin_station_id) REFERENCES Stations(id) ON DELETE CASCADE,
-  FOREIGN KEY (destination_station_id) REFERENCES Stations(id) ON DELETE CASCADE,
-  UNIQUE(origin_station_id, destination_station_id)
-);
-
--- Ridership Table (historical dataset)
+-- Imported historical ridership dataset used by analytics and retraining.
 CREATE TABLE IF NOT EXISTS Ridership (
   id SERIAL PRIMARY KEY,
   date TEXT NOT NULL,
@@ -78,100 +83,72 @@ CREATE TABLE IF NOT EXISTS Ridership (
   destination TEXT NOT NULL,
   ridership_count INTEGER NOT NULL
 );
-
 CREATE INDEX IF NOT EXISTS idx_ridership_origin_dest ON Ridership (origin, destination);
 CREATE INDEX IF NOT EXISTS idx_ridership_date_time ON Ridership (date, time);
 
--- Predictions Table
-CREATE TABLE IF NOT EXISTS Predictions (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER NOT NULL,
-  origin TEXT NOT NULL,
-  destination TEXT NOT NULL,
-  travel_date TEXT NOT NULL,
-  travel_time TEXT NOT NULL,
-  predicted_ridership INTEGER NOT NULL,
-  demand_level TEXT NOT NULL
-    CHECK (demand_level IN ('Low', 'Medium', 'High', 'Very High')),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
-);
-
--- SavedTrips Table
+-- Passenger-saved itineraries.
 CREATE TABLE IF NOT EXISTS SavedTrips (
   id SERIAL PRIMARY KEY,
-  user_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
   origin TEXT NOT NULL,
   destination TEXT NOT NULL,
   travel_date TEXT NOT NULL,
   travel_time TEXT NOT NULL,
   predicted_ridership INTEGER,
-  demand_level TEXT
-    CHECK (demand_level IN ('Low', 'Medium', 'High', 'Very High')),
+  demand_level TEXT CHECK (demand_level IN ('Low', 'Medium', 'High', 'Very High')),
   note TEXT DEFAULT '',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX IF NOT EXISTS idx_saved_trips_user ON SavedTrips (user_id, created_at);
 
--- Feedback Table
+-- Crowd feedback submitted by passengers/operators.
 CREATE TABLE IF NOT EXISTS Feedback (
   id SERIAL PRIMARY KEY,
-  user_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
   origin TEXT NOT NULL,
   destination TEXT NOT NULL,
   travel_date TEXT NOT NULL,
-  crowd_level TEXT NOT NULL
-    CHECK (crowd_level IN ('Low', 'Medium', 'High', 'Very High')),
-  comfort_rating INTEGER NOT NULL
-    CHECK (comfort_rating BETWEEN 1 AND 5),
+  crowd_level TEXT NOT NULL CHECK (crowd_level IN ('Low', 'Medium', 'High', 'Very High')),
+  comfort_rating INTEGER NOT NULL CHECK (comfort_rating BETWEEN 1 AND 5),
   delay_reported BOOLEAN DEFAULT FALSE,
   delay_minutes INTEGER DEFAULT 0,
   comment TEXT DEFAULT '',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX IF NOT EXISTS idx_feedback_user ON Feedback (user_id, created_at);
 
--- Holidays Table (static Malaysian holidays)
+-- Holidays stay in the database: the prediction engine reads them to set the
+-- is_holiday feature, and the dashboard lists them. Google Calendar can be a
+-- source (see external_uid) or a destination, but it cannot replace this table.
 CREATE TABLE IF NOT EXISTS Holidays (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   date TEXT NOT NULL,
   country TEXT DEFAULT 'Malaysia',
+  state TEXT DEFAULT 'ALL',
+  source TEXT DEFAULT 'manual',
+  external_uid TEXT,
   UNIQUE(name, date)
 );
+CREATE UNIQUE INDEX IF NOT EXISTS uq_holidays_external_uid
+  ON Holidays (external_uid) WHERE external_uid IS NOT NULL;
 
--- Reports Table
+-- Monthly reports generated by operators.
 CREATE TABLE IF NOT EXISTS Reports (
   id SERIAL PRIMARY KEY,
-  operator_id INTEGER NOT NULL,
-  month INTEGER NOT NULL
-    CHECK (month BETWEEN 1 AND 12),
+  operator_id INTEGER NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
+  month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
   year INTEGER NOT NULL,
   generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   report_data TEXT,
-  FOREIGN KEY (operator_id) REFERENCES Users(id) ON DELETE CASCADE,
   UNIQUE(operator_id, month, year)
-);
-
--- HistoricalData Table (aggregated predictions for retraining)
-CREATE TABLE IF NOT EXISTS HistoricalData (
-  id SERIAL PRIMARY KEY,
-  origin_station TEXT NOT NULL,
-  destination_station TEXT NOT NULL,
-  year INTEGER NOT NULL,
-  month INTEGER NOT NULL
-    CHECK (month BETWEEN 1 AND 12),
-  demand_count INTEGER NOT NULL DEFAULT 0,
-  demand_level TEXT NOT NULL DEFAULT 'Low'
-    CHECK (demand_level IN ('Low', 'Medium', 'High', 'Very High')),
-  UNIQUE(origin_station, destination_station, year, month)
 );
 
 -- ==========================================================
 -- 3. SEED DATA
 -- ==========================================================
 
--- Seed Stations (ETS route stations with states)
+-- Stations
 INSERT INTO Stations (name, state) VALUES
   ('Padang Besar', 'Perlis'),
   ('Arau', 'Perlis'),
@@ -211,64 +188,35 @@ INSERT INTO Stations (name, state) VALUES
   ('JB Sentral', 'Johor')
 ON CONFLICT (name) DO NOTHING;
 
--- Seed Routes (adjacent station connections + popular direct routes)
--- Adjacent station pairs (bidirectional)
-WITH station_ids AS (
-  SELECT id, name FROM Stations
+-- Adjacent station connections (both directions)
+INSERT INTO Routes (origin_station_id, destination_station_id)
+SELECT o.id, d.id
+FROM (SELECT id, ROW_NUMBER() OVER (ORDER BY id) rn FROM Stations) o
+JOIN (SELECT id, ROW_NUMBER() OVER (ORDER BY id) rn FROM Stations) d
+  ON d.rn = o.rn + 1
+ON CONFLICT DO NOTHING;
+
+INSERT INTO Routes (origin_station_id, destination_station_id)
+SELECT d.id, o.id
+FROM (SELECT id, ROW_NUMBER() OVER (ORDER BY id) rn FROM Stations) o
+JOIN (SELECT id, ROW_NUMBER() OVER (ORDER BY id) rn FROM Stations) d
+  ON d.rn = o.rn + 1
+ON CONFLICT DO NOTHING;
+
+-- Popular direct routes (both directions)
+INSERT INTO Routes (origin_station_id, destination_station_id)
+SELECT o.id, d.id FROM Stations o, Stations d
+WHERE (o.name, d.name) IN (
+  ('Butterworth', 'KL Sentral'),
+  ('KL Sentral', 'Butterworth'),
+  ('Padang Besar', 'KL Sentral'),
+  ('KL Sentral', 'Padang Besar'),
+  ('Ipoh', 'KL Sentral'),
+  ('KL Sentral', 'Ipoh')
 )
-INSERT INTO Routes (origin_station_id, destination_station_id)
-SELECT o.id, d.id FROM
-  (SELECT id, ROW_NUMBER() OVER (ORDER BY id) as rn FROM Stations) o
-  JOIN (SELECT id, ROW_NUMBER() OVER (ORDER BY id) as rn FROM Stations) d
-    ON d.rn = o.rn + 1
-WHERE o.id < 36
 ON CONFLICT DO NOTHING;
 
-WITH station_ids AS (
-  SELECT id, name FROM Stations
-)
-INSERT INTO Routes (origin_station_id, destination_station_id)
-SELECT d.id, o.id FROM
-  (SELECT id, ROW_NUMBER() OVER (ORDER BY id) as rn FROM Stations) o
-  JOIN (SELECT id, ROW_NUMBER() OVER (ORDER BY id) as rn FROM Stations) d
-    ON d.rn = o.rn + 1
-WHERE o.id < 36
-ON CONFLICT DO NOTHING;
-
--- Popular direct routes (Butterworth ↔ KL Sentral)
-INSERT INTO Routes (origin_station_id, destination_station_id)
-SELECT o.id, d.id FROM Stations o, Stations d
-WHERE o.name = 'Butterworth' AND d.name = 'KL Sentral'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO Routes (origin_station_id, destination_station_id)
-SELECT o.id, d.id FROM Stations o, Stations d
-WHERE o.name = 'KL Sentral' AND d.name = 'Butterworth'
-ON CONFLICT DO NOTHING;
-
--- Padang Besar ↔ KL Sentral
-INSERT INTO Routes (origin_station_id, destination_station_id)
-SELECT o.id, d.id FROM Stations o, Stations d
-WHERE o.name = 'Padang Besar' AND d.name = 'KL Sentral'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO Routes (origin_station_id, destination_station_id)
-SELECT o.id, d.id FROM Stations o, Stations d
-WHERE o.name = 'KL Sentral' AND d.name = 'Padang Besar'
-ON CONFLICT DO NOTHING;
-
--- Ipoh ↔ KL Sentral
-INSERT INTO Routes (origin_station_id, destination_station_id)
-SELECT o.id, d.id FROM Stations o, Stations d
-WHERE o.name = 'Ipoh' AND d.name = 'KL Sentral'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO Routes (origin_station_id, destination_station_id)
-SELECT o.id, d.id FROM Stations o, Stations d
-WHERE o.name = 'KL Sentral' AND d.name = 'Ipoh'
-ON CONFLICT DO NOTHING;
-
--- Seed Holidays (Malaysia 2026)
+-- Malaysian public holidays 2026
 INSERT INTO Holidays (name, date, country) VALUES
   ('New Year''s Day', '2026-01-01', 'Malaysia'),
   ('Chinese New Year', '2026-02-17', 'Malaysia'),
@@ -278,7 +226,7 @@ INSERT INTO Holidays (name, date, country) VALUES
   ('Hari Raya Aidilfitri (Day 2)', '2026-03-21', 'Malaysia'),
   ('Labour Day', '2026-05-01', 'Malaysia'),
   ('Wesak Day', '2026-05-31', 'Malaysia'),
-  ('Agong''s Birthday', '2020-06-01', 'Malaysia'),
+  ('Agong''s Birthday', '2026-06-01', 'Malaysia'),
   ('Hari Raya Aidiladha', '2026-05-27', 'Malaysia'),
   ('Awal Muharram', '2026-06-16', 'Malaysia'),
   ('Maulidur Rasul', '2026-08-25', 'Malaysia'),
@@ -289,22 +237,25 @@ INSERT INTO Holidays (name, date, country) VALUES
 ON CONFLICT (name, date) DO NOTHING;
 
 -- ==========================================================
--- 4. SEED INITIAL USERS (commented out - register users via the app)
--- Password: Admin@12345!, Operator@12345!, Passenger@12345!
--- To enable, uncomment the INSERT below.
+-- 4. SEED ACCOUNTS (same roles/passwords as before, new usernames)
+--    Change these immediately after first login.
+--
+--    Role       Username        Password
+--    admin      ets_admin       Admin@12345!
+--    operator   ets_operator    Operator@12345!
+--    passenger  ets_passenger   Passenger@12345!
 -- ==========================================================
--- INSERT INTO Users (full_name, username, password_hash, role, status, language) VALUES
---   ('System Admin', 'admin', '$2b$10$0T.gnMnlvPZPqOnNlgCrAeyT1/4qrQ8YP478YEsl4eyHfp8CXkbAq', 'admin', 'active', 'en'),
---   ('ETS Station Controller', 'operator', '$2b$10$QK9bNzsMH21GyzZ4Uaoki.aITbDnvhMr10z/L6gcfdTGfLbmKewti', 'operator', 'pending', 'en'),
---   ('John Doe Passenger', 'passenger', '$2b$10$lb2j8BpVV4ttVbPPOvDNd.Wd01BE.3JLEa9DRLYVaTlNRndtCmQAa', 'passenger', 'active', 'en')
--- ON CONFLICT (username) DO NOTHING;
+INSERT INTO Users (full_name, username, password_hash, role, status, language) VALUES
+  ('System Admin', 'ets_admin', '$2b$10$BZbV.cwnP6S9DgBseMNhaeufp1Nkx.bAEZN8ykNJqFyo27fclwZJm', 'admin', 'active', 'en'),
+  ('ETS Station Controller', 'ets_operator', '$2b$10$ZPRckVq/Fg.1o1.I3vO5BulPLViqvgLiXIPhXmOgycDB4LDNdVdni', 'operator', 'approved', 'en'),
+  ('John Doe Passenger', 'ets_passenger', '$2b$10$n0rHu3m6FQvEreYCttUtluExFghjUOs6STWFBwHjtT5h8iQi5s35W', 'passenger', 'active', 'en')
+ON CONFLICT (username) DO NOTHING;
 
 -- ==========================================================
--- 5. VERIFICATION QUERIES (run these individually to confirm setup)
+-- 5. VERIFY (optional)
 -- ==========================================================
--- SELECT 'Users' as table_name, COUNT(*) as count FROM Users
+-- SELECT 'Users' AS table_name, COUNT(*) FROM Users
 -- UNION ALL SELECT 'Stations', COUNT(*) FROM Stations
 -- UNION ALL SELECT 'Routes', COUNT(*) FROM Routes
 -- UNION ALL SELECT 'Holidays', COUNT(*) FROM Holidays
--- UNION ALL SELECT 'Ridership', COUNT(*) FROM Ridership
--- ORDER BY table_name;
+-- UNION ALL SELECT 'Ridership', COUNT(*) FROM Ridership;
