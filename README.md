@@ -315,5 +315,6 @@ vercel.json                   SPA hosting config for the Vercel frontend
 | Holidays list empty | Admin → Holidays → **Sync … Holidays**, or check that the `Holidays` table has rows |
 | `redirect_uri_mismatch` from Google | The Google client's redirect URI must be `https://<ref>.supabase.co/auth/v1/callback` |
 | Google sign-in returns to the app but shows "did not finish" | Supabase → Auth → URL Configuration must list `https://etsystem-zeta.vercel.app` and `/bm`; the API host needs `SUPABASE_URL` + `SUPABASE_ANON_KEY` for `POST /api/auth/supabase`. Check the browser console for the `[auth]` line and the API terminal for the real reason |
+| An old bundle keeps loading after a fix (PWA / hard refresh not enough) | Open the app with **`?reset=1`** (e.g. `http://localhost:3000/?reset=1`). It unregisters service workers, clears Cache Storage and reloads clean |
 | API calls fail only on the deployed site | `VITE_API_BASE_URL` wrong, or the API host's `CORS_ORIGINS` does not include the Vercel origin |
 | Predictions fall back to statistics | Python or `ml/model.pkl` unavailable on the API host |

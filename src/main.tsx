@@ -63,9 +63,40 @@ function registerServiceWorker() {
 // header can both offer installation without missing the event.
 initPwaInstall();
 
-// Drop workers/caches left by other projects or the old hand-written worker
-// before registering the current one.
-cleanupForeignServiceWorkers().finally(registerServiceWorker);
+/**
+ * `?reset=1` unregisters every service worker and empties the Cache Storage,
+ * then reloads into a clean URL. This is the reliable way out of a stale PWA
+ * bundle (a browser can otherwise keep serving an old app shell after a deploy).
+ */
+async function resetAppCacheIfRequested(): Promise<boolean> {
+  const url = new URL(window.location.href);
+  if (url.searchParams.get('reset') !== '1') return false;
+
+  try {
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.unregister()));
+    }
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+    }
+  } catch {
+    /* Best effort: reloading with the old cache is still better than freezing. */
+  }
+
+  url.searchParams.delete('reset');
+  window.location.replace(url.toString());
+  return true;
+}
+
+resetAppCacheIfRequested().then((reloading) => {
+  if (reloading) return;
+
+  // Drop workers/caches left by other projects or the old hand-written worker
+  // before registering the current one.
+  cleanupForeignServiceWorkers().finally(registerServiceWorker);
+});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

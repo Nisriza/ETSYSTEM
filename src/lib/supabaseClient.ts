@@ -117,6 +117,45 @@ export interface GoogleSignInResult {
 }
 
 /**
+ * Set right before the browser leaves for Google, so the app can still tell
+ * "the user just tried Google sign-in" even if Supabase returns to a URL with
+ * no code/token in it (which otherwise looks identical to opening the login
+ * page normally).
+ */
+export const GOOGLE_OAUTH_PENDING_KEY = 'ets-google-oauth-pending';
+
+/** Marks a Google attempt as started (survives the redirect, per tab). */
+export function markGoogleSignInStarted(): void {
+  try {
+    sessionStorage.setItem(GOOGLE_OAUTH_PENDING_KEY, String(Date.now()));
+  } catch {
+    /* sessionStorage can be unavailable; the URL check still works. */
+  }
+}
+
+/** Reads and clears the "Google attempt started in this tab" marker. */
+export function consumeGoogleSignInStarted(): boolean {
+  try {
+    const value = sessionStorage.getItem(GOOGLE_OAUTH_PENDING_KEY);
+    if (value) sessionStorage.removeItem(GOOGLE_OAUTH_PENDING_KEY);
+    return Boolean(value);
+  } catch {
+    return false;
+  }
+}
+
+/** Log-safe description of what the OAuth redirect handed back. */
+export function describeOAuthCallbackInUrl(): string {
+  if (typeof window === 'undefined') return 'no window';
+  const hasCode = Boolean(readOAuthCodeFromUrl());
+  const hasTokens = Boolean(readOAuthTokensFromUrl());
+  const hasError = Boolean(readOAuthErrorFromUrl());
+  const queryKeys = [...new URLSearchParams(window.location.search).keys()];
+  const hashKeys = [...new URLSearchParams(window.location.hash.replace(/^#/, '')).keys()];
+  return `code=${hasCode} tokens=${hasTokens} error=${hasError} query=[${queryKeys.join(',')}] hash=[${hashKeys.join(',')}]`;
+}
+
+/**
  * Starts the Supabase-hosted Google OAuth redirect.
  * `redirectPath` is the app route to land on afterwards (`/` or `/bm`).
  */
@@ -133,6 +172,8 @@ export async function signInWithGoogle(redirectPath = '/'): Promise<GoogleSignIn
   const path = redirectPath.startsWith('/') ? redirectPath : `/${redirectPath}`;
   const redirectTo = `${window.location.origin}${path}`;
 
+  markGoogleSignInStarted();
+
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -143,7 +184,16 @@ export async function signInWithGoogle(redirectPath = '/'): Promise<GoogleSignIn
     },
   });
 
-  return error ? { ok: false, error: error.message } : { ok: true };
+  if (error) {
+    try {
+      sessionStorage.removeItem(GOOGLE_OAUTH_PENDING_KEY);
+    } catch {
+      /* ignore */
+    }
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true };
 }
 
 /** Clears the Supabase session (best effort). */

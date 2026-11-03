@@ -14,8 +14,15 @@ import AIAssistant from './components/AIAssistant.tsx';
 import { getTutorialStepsForRole, markTutorialCompleted } from './lib/tutorial.ts';
 import { apiFetch } from './lib/api.ts';
 import { bridgeSupabaseSession } from './lib/supabaseAuth.ts';
-import { clearOAuthParamsFromUrl, hasOAuthCallbackInUrl, readOAuthErrorFromUrl, signOutOfSupabase } from './lib/supabaseClient.ts';
+import { clearOAuthParamsFromUrl, consumeGoogleSignInStarted, describeOAuthCallbackInUrl, hasOAuthCallbackInUrl, readOAuthErrorFromUrl, signOutOfSupabase } from './lib/supabaseClient.ts';
 import { formatGoogleAuthError } from './lib/googleErrors.ts';
+
+/**
+ * True when this page load is the return from Google. Kept at module scope so
+ * React StrictMode's double mount does not clear the marker before the second
+ * boot effect reads it.
+ */
+let oauthPendingThisLoad: boolean | null = null;
 
 function AppContent() {
   const [user, setUser] = useState<User | null>(null);
@@ -38,10 +45,17 @@ function AppContent() {
     const boot = async () => {
       // Capture this before anything clears the address bar: it tells us
       // whether the user is arriving back from Google right now.
-      const cameFromOAuth = hasOAuthCallbackInUrl();
+      //
+      // The marker is kept at module scope so React StrictMode's second mount
+      // still sees it after the first mount consumed the sessionStorage entry.
+      if (oauthPendingThisLoad === null) oauthPendingThisLoad = consumeGoogleSignInStarted();
+      const cameFromOAuth = hasOAuthCallbackInUrl() || oauthPendingThisLoad;
+      console.info('[auth] boot:', cameFromOAuth ? 'returning from Google' : 'normal load', describeOAuthCallbackInUrl());
 
       const storedToken = localStorage.getItem('user_token');
-      if (storedToken) {
+      // When this load is the return from Google, the Google identity must win:
+      // do not let a leftover app token hide the hand-off (and its errors).
+      if (storedToken && !cameFromOAuth) {
         const restored = await verifySession(storedToken);
         if (cancelled) return;
         if (restored) {
