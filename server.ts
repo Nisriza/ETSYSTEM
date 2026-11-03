@@ -463,14 +463,30 @@ app.post('/api/auth/supabase', async (req, res) => {
     }
 
     if (user) {
-      await db.run(
-        `UPDATE Users
-            SET supabase_uid = ?, auth_provider = COALESCE(auth_provider, 'google'),
-                email = COALESCE(email, ?), avatar_url = COALESCE(?, avatar_url),
-                full_name = COALESCE(NULLIF(full_name, ''), ?)
-          WHERE id = ?`,
-        [supabaseUid, email, avatarUrl, fullName, user.id]
-      );
+      try {
+        await db.run(
+          `UPDATE Users
+              SET supabase_uid = ?, auth_provider = COALESCE(auth_provider, 'google'),
+                  email = COALESCE(email, ?), avatar_url = COALESCE(?, avatar_url),
+                  full_name = COALESCE(NULLIF(full_name, ''), ?)
+            WHERE id = ?`,
+          [supabaseUid, email, avatarUrl, fullName, user.id]
+        );
+        console.info(`[auth] Google sign-in linked to existing account #${user.id} (${user.username}).`);
+      } catch (linkError: any) {
+        console.error('[auth] Could not link the Google identity to an existing account:', {
+          userId: user.id,
+          email,
+          supabaseUid,
+          message: linkError?.message,
+          code: linkError?.code,
+          details: linkError?.details,
+        });
+        return res.status(500).json({
+          error:
+            'Your Google account could not be linked to your existing account. Please contact the administrator.',
+        });
+      }
     } else {
       // Google accounts never use a password, but Users.password_hash is NOT NULL
       // and other code paths still compare against it, so store an unusable hash.
@@ -479,18 +495,44 @@ app.post('/api/auth/supabase', async (req, res) => {
       // Usernames are unique; append a short suffix until the handle is free.
       const base = buildUsernameFromEmail(email);
       let username = base;
-      for (let attempt = 0; attempt < 5; attempt++) {
+      for (let attempt = 0; attempt < 10; attempt++) {
         const clash = await db.get('SELECT id FROM Users WHERE username = ?', [username]);
         if (!clash) break;
         username = `${base}${Math.floor(1000 + Math.random() * 9000)}`;
       }
+      // Extremely unlikely, but never let a taken handle reach the INSERT.
+      const stillTaken = await db.get('SELECT id FROM Users WHERE username = ?', [username]);
+      if (stillTaken) username = `${base}${Date.now().toString().slice(-6)}`;
 
-      const result = await db.run(
-        `INSERT INTO Users (full_name, username, password_hash, role, status, email, supabase_uid, auth_provider, avatar_url)
-         VALUES (?, ?, ?, 'passenger', 'active', ?, ?, 'google', ?)`,
-        [fullName, username, unusableHash, email, supabaseUid, avatarUrl]
-      );
-      user = await db.get('SELECT * FROM Users WHERE id = ?', [result.lastID]);
+      try {
+        const result = await db.run(
+          `INSERT INTO Users (full_name, username, password_hash, role, status, email, supabase_uid, auth_provider, avatar_url)
+           VALUES (?, ?, ?, 'passenger', 'active', ?, ?, 'google', ?)`,
+          [fullName, username, unusableHash, email, supabaseUid, avatarUrl]
+        );
+        user = await db.get('SELECT * FROM Users WHERE id = ?', [result.lastID]);
+        console.info(
+          `[auth] Auto-registered new Google account #${user?.id} (${username}) for ${email}.`
+        );
+      } catch (insertError: any) {
+        // Surface the real database reason in the server log instead of the
+        // opaque "Google sign-in failed" the login screen used to show.
+        console.error('[auth] Google auto-registration INSERT failed:', {
+          email,
+          supabaseUid,
+          username,
+          message: insertError?.message,
+          code: insertError?.code,
+          details: insertError?.details,
+          hint: insertError?.hint,
+        });
+        const reason = String(insertError?.message || '')
+          .replace(/^Supabase insert error:\s*/i, '')
+          .trim();
+        return res.status(500).json({
+          error: `Automatic account creation failed${reason ? `: ${reason}` : '.'} Please try again or contact the administrator.`,
+        });
+      }
     }
 
     if (!user) {
@@ -532,7 +574,12 @@ app.post('/api/auth/supabase', async (req, res) => {
       },
     });
   } catch (error: any) {
-    console.error('Supabase auth bridge error:', error);
+    console.error('[auth] Supabase bridge error:', {
+      message: error?.message,
+      code: error?.code,
+      details: error?.details,
+      hint: error?.hint,
+    });
     const message = String(error?.message || '');
     if (/column .*(supabase_uid|auth_provider|avatar_url|email)|does not exist/i.test(message)) {
       return res.status(500).json({

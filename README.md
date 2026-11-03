@@ -146,6 +146,8 @@ The button is rendered on **both** login screens (`/` and `/bm`). If the `VITE_`
 3. **Client ID/Secret pasted wrong in Supabase** — Google returns *invalid_client*. Re-paste from Google Cloud Console.
 4. **Google provider disabled in Supabase** — re-enable under Authentication → Providers.
 
+**Accounts are created automatically.** New Google users never need to register first: `POST /api/auth/supabase` verifies the identity with Supabase, then creates a `Users` row (role `passenger`) or reuses the existing account by `supabase_uid` / email, and returns the normal app session. The redirect back is handled deterministically — `detectSessionInUrl` is off and `bridgeSupabaseSession()` redeems the one-time `?code=` exactly once (deduplicated across React StrictMode mounts). If the redirect returns without a usable session, the login card now shows *"Google sign-in did not finish"* with a retry hint instead of silently staying on the login page. Server-side failures during auto-registration are logged with the real database reason in the API terminal.
+
 ---
 
 ## Public holidays and Google Calendar
@@ -312,6 +314,6 @@ vercel.json                   SPA hosting config for the Vercel frontend
 | Install button shows instructions instead of a prompt | Expected on iOS/iPadOS/Safari and other non-Chromium browsers. Chromium on `https://`/`localhost` shows the native prompt when the app is installable |
 | Holidays list empty | Admin → Holidays → **Sync … Holidays**, or check that the `Holidays` table has rows |
 | `redirect_uri_mismatch` from Google | The Google client's redirect URI must be `https://<ref>.supabase.co/auth/v1/callback` |
-| Google sign-in returns to the app but nothing happens | Supabase → Auth → URL Configuration must list `https://etsystem-zeta.vercel.app` and `/bm`; the API host needs `SUPABASE_URL` + `SUPABASE_ANON_KEY` for `POST /api/auth/supabase` |
+| Google sign-in returns to the app but shows "did not finish" | Supabase → Auth → URL Configuration must list `https://etsystem-zeta.vercel.app` and `/bm`; the API host needs `SUPABASE_URL` + `SUPABASE_ANON_KEY` for `POST /api/auth/supabase`. Check the browser console for the `[auth]` line and the API terminal for the real reason |
 | API calls fail only on the deployed site | `VITE_API_BASE_URL` wrong, or the API host's `CORS_ORIGINS` does not include the Vercel origin |
 | Predictions fall back to statistics | Python or `ml/model.pkl` unavailable on the API host |

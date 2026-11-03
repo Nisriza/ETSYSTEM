@@ -14,7 +14,7 @@ import AIAssistant from './components/AIAssistant.tsx';
 import { getTutorialStepsForRole, markTutorialCompleted } from './lib/tutorial.ts';
 import { apiFetch } from './lib/api.ts';
 import { bridgeSupabaseSession } from './lib/supabaseAuth.ts';
-import { clearOAuthParamsFromUrl, readOAuthErrorFromUrl, signOutOfSupabase } from './lib/supabaseClient.ts';
+import { clearOAuthParamsFromUrl, hasOAuthCallbackInUrl, readOAuthErrorFromUrl, signOutOfSupabase } from './lib/supabaseClient.ts';
 import { formatGoogleAuthError } from './lib/googleErrors.ts';
 
 function AppContent() {
@@ -36,6 +36,10 @@ function AppContent() {
     let cancelled = false;
 
     const boot = async () => {
+      // Capture this before anything clears the address bar: it tells us
+      // whether the user is arriving back from Google right now.
+      const cameFromOAuth = hasOAuthCallbackInUrl();
+
       const storedToken = localStorage.getItem('user_token');
       if (storedToken) {
         const restored = await verifySession(storedToken);
@@ -56,8 +60,24 @@ function AppContent() {
 
       try {
         const bridged = await bridgeSupabaseSession();
+        if (!cancelled) {
+          console.info(
+            '[auth] Google bridge:',
+            bridged ? `signed in as ${bridged.user.username} (#${bridged.user.id})` : 'no Supabase session found'
+          );
+        }
         if (!cancelled && bridged) {
           handleLoginSuccess(bridged.user, bridged.token);
+          clearOAuthParamsFromUrl();
+        } else if (!cancelled && cameFromOAuth && !oauthError) {
+          // The redirect came back, but no session could be established. Say so
+          // instead of leaving the user on a blank-looking login page.
+          setAuthNotice(
+            formatGoogleAuthError(
+              'Google sign-in did not complete: you returned from Google but no session was created.',
+              isBM
+            )
+          );
           clearOAuthParamsFromUrl();
         }
       } catch (e: any) {

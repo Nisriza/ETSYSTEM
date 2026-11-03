@@ -56,6 +56,11 @@ const COPY = {
     serverMsg: 'The server rejected the Google session after sign-in.',
     serverHint: 'Please try again. If it keeps failing, contact the administrator.',
 
+    incompleteTitle: 'Google sign-in did not finish',
+    incompleteMsg: 'You came back from Google, but the app could not confirm a signed-in session.',
+    incompleteHint:
+      'Click "Sign in with Google" and try again. If it keeps happening, clear this site\'s cookies and retry, or sign in with your username and password.',
+
     fallbackTitle: 'Google sign-in failed',
     fallbackHint: 'Please try again, or sign in with your username and password.',
   },
@@ -99,6 +104,11 @@ const COPY = {
     serverMsg: 'Pelayan menolak sesi Google selepas log masuk.',
     serverHint: 'Sila cuba lagi. Jika masih gagal, hubungi pentadbir.',
 
+    incompleteTitle: 'Log masuk Google tidak selesai',
+    incompleteMsg: 'Anda kembali daripada Google, tetapi aplikasi tidak dapat mengesahkan sesi log masuk.',
+    incompleteHint:
+      'Klik "Log masuk dengan Google" dan cuba lagi. Jika berterusan, kosongkan kuki laman ini dan cuba semula, atau log masuk dengan nama pengguna dan kata laluan.',
+
     fallbackTitle: 'Log masuk Google gagal',
     fallbackHint: 'Sila cuba lagi, atau log masuk menggunakan nama pengguna dan kata laluan.',
   },
@@ -136,6 +146,12 @@ export function describeGoogleAuthError(raw: string, isBM: boolean): FriendlyAut
   }
   if (m.includes('did not return') || m.includes('invalid or expired') || m.includes('did not return a session')) {
     return { title: c.serverTitle, message: c.serverMsg, hint: c.serverHint };
+  }
+  if (m.includes('did not complete') || m.includes('no session was created') || m.includes('no session')) {
+    return { title: c.incompleteTitle, message: c.incompleteMsg, hint: c.incompleteHint };
+  }
+  if (m.includes('code verifier') || m.includes('pkce') || m.includes('invalid flow state') || m.includes('auth code')) {
+    return { title: c.incompleteTitle, message: c.incompleteMsg, hint: c.incompleteHint };
   }
   return { title: c.fallbackTitle, message: raw, hint: c.fallbackHint };
 }

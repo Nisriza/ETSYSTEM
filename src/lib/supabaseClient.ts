@@ -36,7 +36,11 @@ function createSupabaseClient(url: string, anonKey: string): SupabaseClient {
     auth: {
       // PKCE keeps the token exchange in the browser without a client secret.
       flowType: 'pkce',
-      detectSessionInUrl: true,
+      // The PKCE code is exchanged explicitly in bridgeSupabaseSession() so the
+      // app knows exactly when it finished. Relying on the library's URL
+      // detection left the app on the login page when the exchange happened
+      // later than the first getSession() call.
+      detectSessionInUrl: false,
       persistSession: true,
       autoRefreshToken: true,
     },
@@ -145,6 +149,30 @@ export function readOAuthErrorFromUrl(): string | null {
     hash.get('error_description') || query.get('error_description') || hash.get('error') || query.get('error');
 
   return description ? description.replace(/\+/g, ' ') : null;
+}
+
+/**
+ * The one-time PKCE authorization code Supabase appends to the redirect URL
+ * (`?code=...`). `bridgeSupabaseSession()` exchanges it explicitly.
+ */
+export function readOAuthCodeFromUrl(): string | null {
+  if (typeof window === 'undefined') return null;
+  return new URLSearchParams(window.location.search).get('code');
+}
+
+/**
+ * True when the current URL looks like a return from an OAuth provider, i.e.
+ * it carries a code, an access token or an error. Used to tell "the user never
+ * started Google sign-in" apart from "the hand-off silently failed".
+ */
+export function hasOAuthCallbackInUrl(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  const query = new URLSearchParams(window.location.search);
+  if (query.has('code') || query.has('error') || query.has('error_description')) return true;
+
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  return hash.has('access_token') || hash.has('error') || hash.has('error_description');
 }
 
 /** Removes the OAuth params from the address bar so a refresh does not replay them. */
