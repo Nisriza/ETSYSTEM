@@ -19,8 +19,26 @@ import { apiUrl } from './api';
 const ENV_URL = ((import.meta.env.VITE_SUPABASE_URL as string | undefined) || '').trim();
 const ENV_KEY = ((import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || '').trim();
 
-/** True when both public Supabase values were baked in at build time. */
-export const isSupabaseAuthConfigured = Boolean(ENV_URL && ENV_KEY);
+/**
+ * Detects the untouched values from `.env.example`. Deployments have shipped
+ * with these copied into the host's environment variables, which produced a
+ * Supabase client pointed at a host that does not exist ("Failed to fetch" when
+ * the user clicks Google). Treat them as "not configured" so the runtime
+ * config lookup is attempted instead.
+ */
+function isPlaceholder(value: string): boolean {
+  const v = value.toLowerCase();
+  return (
+    !v ||
+    v.includes('your-project.supabase.co') ||
+    v === 'your-anon-key' ||
+    v.startsWith('your-') ||
+    v.includes('example.com')
+  );
+}
+
+/** True when real public Supabase values were baked in at build time. */
+export const isSupabaseAuthConfigured = !isPlaceholder(ENV_URL) && !isPlaceholder(ENV_KEY);
 
 let client: SupabaseClient | null = null;
 let clientPromise: Promise<SupabaseClient | null> | null = null;
