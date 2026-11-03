@@ -161,6 +161,22 @@ export function readOAuthCodeFromUrl(): string | null {
 }
 
 /**
+ * Tokens returned in the URL fragment when a Supabase project answers the OAuth
+ * redirect with the implicit flow (`#access_token=...&refresh_token=...`).
+ * Handled as a fallback so the app works with either flow configuration.
+ */
+export function readOAuthTokensFromUrl(): { accessToken: string; refreshToken: string } | null {
+  if (typeof window === 'undefined') return null;
+
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const accessToken = hash.get('access_token');
+  const refreshToken = hash.get('refresh_token');
+  if (!accessToken || !refreshToken) return null;
+
+  return { accessToken, refreshToken };
+}
+
+/**
  * True when the current URL looks like a return from an OAuth provider, i.e.
  * it carries a code, an access token or an error. Used to tell "the user never
  * started Google sign-in" apart from "the hand-off silently failed".
@@ -179,7 +195,22 @@ export function hasOAuthCallbackInUrl(): boolean {
 export function clearOAuthParamsFromUrl(): void {
   if (typeof window === 'undefined' || !window.history?.replaceState) return;
   const url = new URL(window.location.href);
-  const params = ['error', 'error_description', 'error_code', 'code', 'state'];
+  const params = [
+    'error',
+    'error_description',
+    'error_code',
+    'code',
+    'state',
+    // implicit-flow fragment values
+    'access_token',
+    'refresh_token',
+    'expires_in',
+    'expires_at',
+    'token_type',
+    'provider_token',
+    'provider_refresh_token',
+    'type',
+  ];
   let changed = false;
   for (const key of params) {
     if (url.searchParams.has(key)) {

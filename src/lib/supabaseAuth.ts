@@ -13,7 +13,7 @@
  *      and returns the usual { token, user } payload.
  */
 import { apiFetch } from './api';
-import { getSupabaseClient, readOAuthCodeFromUrl } from './supabaseClient';
+import { getSupabaseClient, readOAuthCodeFromUrl, readOAuthTokensFromUrl } from './supabaseClient';
 import type { User } from '../types';
 
 export interface BridgedSession {
@@ -44,11 +44,27 @@ async function doBridgeSupabaseSession(): Promise<BridgedSession | null> {
   const supabase = await getSupabaseClient();
   if (!supabase) return null;
 
-  // 1. If we came back from Google with an authorization code, redeem it now
-  //    and wait for the result. `detectSessionInUrl` is disabled on the client,
-  //    so this is the only place the code is consumed.
+  // 1. Redeem whatever the OAuth redirect handed back.
+  //
+  //    PKCE (the default) returns a one-time `?code=`; some Supabase
+  //    configurations return `#access_token=...&refresh_token=...` instead.
+  //    Both are handled here so the hand-off does not depend on which flow the
+  //    project uses.
+  const hashTokens = readOAuthTokensFromUrl();
+  if (hashTokens) {
+    const { error } = await supabase.auth.setSession({
+      access_token: hashTokens.accessToken,
+      refresh_token: hashTokens.refreshToken,
+    });
+    if (error) {
+      console.warn('[auth] Could not restore the implicit-flow session:', error.message);
+      throw new Error(error.message || 'Google sign-in did not complete.');
+    }
+    console.info('[auth] Restored the session from the implicit-flow redirect.');
+  }
+
   const code = readOAuthCodeFromUrl();
-  if (code) {
+  if (!hashTokens && code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
       // A concurrent (StrictMode) or repeated exchange may already have stored

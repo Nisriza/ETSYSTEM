@@ -61,6 +61,12 @@ const COPY = {
     incompleteHint:
       'Click "Sign in with Google" and try again. If it keeps happening, clear this site\'s cookies and retry, or sign in with your username and password.',
 
+    verifierTitle: 'Google sign-in lost its security check',
+    verifierMsg:
+      'The browser no longer had the one-time code needed to finish sign-in. This usually happens when the app opens on a different address than the one you started from — for example 127.0.0.1 instead of localhost, a different port, or a new tab.',
+    verifierHint:
+      'Open the app at the same address you clicked "Sign in with Google" from, use the same browser window, and try again.',
+
     fallbackTitle: 'Google sign-in failed',
     fallbackHint: 'Please try again, or sign in with your username and password.',
   },
@@ -109,6 +115,12 @@ const COPY = {
     incompleteHint:
       'Klik "Log masuk dengan Google" dan cuba lagi. Jika berterusan, kosongkan kuki laman ini dan cuba semula, atau log masuk dengan nama pengguna dan kata laluan.',
 
+    verifierTitle: 'Log masuk Google kehilangan semakan keselamatan',
+    verifierMsg:
+      'Pelayar tidak lagi menyimpan kod sekali guna untuk melengkapkan log masuk. Ini biasanya berlaku apabila aplikasi dibuka pada alamat berbeza daripada alamat anda mula log masuk — contohnya 127.0.0.1 bukan localhost, port berbeza, atau tab baharu.',
+    verifierHint:
+      'Buka aplikasi pada alamat yang sama anda klik "Log masuk dengan Google", guna tetingkap pelayar yang sama, dan cuba lagi.',
+
     fallbackTitle: 'Log masuk Google gagal',
     fallbackHint: 'Sila cuba lagi, atau log masuk menggunakan nama pengguna dan kata laluan.',
   },
@@ -150,7 +162,10 @@ export function describeGoogleAuthError(raw: string, isBM: boolean): FriendlyAut
   if (m.includes('did not complete') || m.includes('no session was created') || m.includes('no session')) {
     return { title: c.incompleteTitle, message: c.incompleteMsg, hint: c.incompleteHint };
   }
-  if (m.includes('code verifier') || m.includes('pkce') || m.includes('invalid flow state') || m.includes('auth code')) {
+  if (m.includes('code verifier') || m.includes('code_verifier')) {
+    return { title: c.verifierTitle, message: c.verifierMsg, hint: c.verifierHint };
+  }
+  if (m.includes('pkce') || m.includes('invalid flow state') || m.includes('auth code')) {
     return { title: c.incompleteTitle, message: c.incompleteMsg, hint: c.incompleteHint };
   }
   return { title: c.fallbackTitle, message: raw, hint: c.fallbackHint };
