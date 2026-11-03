@@ -4,6 +4,7 @@ import { Train, User as UserIcon, Lock, Loader2, ArrowRight, CheckCircle2, UserR
 import GoogleSignInButton from './GoogleSignInButton.tsx';
 import InstallAppButton from './InstallAppButton.tsx';
 import { apiFetch } from '../lib/api.ts';
+import { formatGoogleAuthError } from '../lib/googleErrors.ts';
 
 type LoginLang = 'en' | 'bm';
 
@@ -63,8 +64,7 @@ const COPY = {
     errNetwork: 'Network error. Please try again.',
     registrationSuccess: 'Registration successful! Logging you in...',
     forgotTitle: 'Reset Password',
-    forgotIntro: 'Enter your registered full name and username to reset your password.',
-    forgotFullNamePlaceholder: 'e.g. Aminah binti Ali',
+    forgotIntro: 'Enter your username to set a new password.',
     forgotUsername: 'Username',
     forgotUsernamePlaceholder: 'Your username',
     forgotNew: 'New Password',
@@ -128,8 +128,7 @@ const COPY = {
     errNetwork: 'Ralat rangkaian. Sila cuba lagi.',
     registrationSuccess: 'Pendaftaran berjaya! Log masuk...',
     forgotTitle: 'Set Semula Kata Laluan',
-    forgotIntro: 'Masukkan nama penuh dan nama pengguna berdaftar untuk menyet semula kata laluan anda.',
-    forgotFullNamePlaceholder: 'cth. Aminah binti Ali',
+    forgotIntro: 'Masukkan nama pengguna anda untuk menetapkan kata laluan baharu.',
     forgotUsername: 'Nama Pengguna',
     forgotUsernamePlaceholder: 'Nama pengguna anda',
     forgotNew: 'Kata Laluan Baru',
@@ -168,7 +167,6 @@ export default function LoginView({
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [forgotFullname, setForgotFullname] = useState('');
   const [forgotUsername, setForgotUsername] = useState('');
   const [forgotNewPassword, setForgotNewPassword] = useState('');
   const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
@@ -295,7 +293,7 @@ export default function LoginView({
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    if (!forgotFullname.trim() || !forgotUsername.trim() || !forgotNewPassword.trim()) {
+    if (!forgotUsername.trim() || !forgotNewPassword.trim()) {
       setErrorMsg(c.forgotErrFields);
       return;
     }
@@ -311,7 +309,6 @@ export default function LoginView({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fullname: forgotFullname,
           username: forgotUsername.toLowerCase().trim(),
           newPassword: forgotNewPassword,
         }),
@@ -319,7 +316,6 @@ export default function LoginView({
       const data = await res.json();
       if (res.ok) {
         setSuccessMsg(data.message || c.forgotSuccess);
-        setForgotFullname('');
         setForgotUsername('');
         setForgotNewPassword('');
         setForgotConfirmPassword('');
@@ -428,7 +424,7 @@ export default function LoginView({
           </div>
 
           {errorMsg && (
-            <div className="mb-4 rounded-xl border border-red-100 bg-red-50 p-3 text-xs font-medium text-[#ef4444]" id="auth-error-alert">
+            <div className="mb-4 rounded-xl border border-red-100 bg-red-50 p-3 text-xs font-medium text-[#ef4444] whitespace-pre-line" id="auth-error-alert">
               {errorMsg}
             </div>
           )}
@@ -448,7 +444,7 @@ export default function LoginView({
                 unavailableMessage={c.googleUnavailable}
                 redirectPath={redirectPath}
                 disabled={loading}
-                onError={(message) => setErrorMsg(message)}
+                onError={(message) => setErrorMsg(formatGoogleAuthError(message, language === 'bm'))}
               />
               <button
                 id="btn-continue-guest"
@@ -618,16 +614,6 @@ export default function LoginView({
               <div className="mb-3 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-xs font-medium text-[#10b981]">{successMsg}</div>
             )}
             <form onSubmit={handleForgotPassword} className="space-y-3">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-500">{c.fullName}</label>
-                <input
-                  type="text"
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#4f46e5] focus:outline-none"
-                  placeholder={c.forgotFullNamePlaceholder}
-                  value={forgotFullname}
-                  onChange={(e) => setForgotFullname(e.target.value)}
-                />
-              </div>
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-500">{c.forgotUsername}</label>
                 <input

@@ -138,6 +138,13 @@ Nothing else in the app changed: every protected route still uses the existing `
 
 The button is rendered on **both** login screens (`/` and `/bm`). If the `VITE_` values were not present when Vercel built the SPA, the browser asks the API host for the public URL/anon key via `GET /api/auth/config`, so Google sign-in still works instead of disappearing from one build. Only the anon key is ever returned — never the service-role key.
 
+**When users report Google sign-in failures:** the login screen now translates raw Google/Supabase errors into a friendly, localised explanation with a fix hint (`src/lib/googleErrors.ts`). The raw error is always in the browser console. The four real-world causes, in order of likelihood:
+
+1. **OAuth consent screen is in "Testing" mode** — only listed test users can sign in; everyone else gets *access_denied*. Fix: Google Cloud Console → OAuth consent screen → **Publish app**.
+2. **Missing redirect URIs** — `https://<project>.supabase.co/auth/v1/callback` must be in the Google OAuth client's *Authorized redirect URIs*, and every app URL (`/`, `/bm`, production domain) must be in Supabase → Authentication → URL Configuration.
+3. **Client ID/Secret pasted wrong in Supabase** — Google returns *invalid_client*. Re-paste from Google Cloud Console.
+4. **Google provider disabled in Supabase** — re-enable under Authentication → Providers.
+
 ---
 
 ## Public holidays and Google Calendar

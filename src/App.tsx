@@ -15,6 +15,7 @@ import { getTutorialStepsForRole, markTutorialCompleted } from './lib/tutorial.t
 import { apiFetch } from './lib/api.ts';
 import { bridgeSupabaseSession } from './lib/supabaseAuth.ts';
 import { clearOAuthParamsFromUrl, readOAuthErrorFromUrl, signOutOfSupabase } from './lib/supabaseClient.ts';
+import { formatGoogleAuthError } from './lib/googleErrors.ts';
 
 function AppContent() {
   const [user, setUser] = useState<User | null>(null);
@@ -48,7 +49,8 @@ function AppContent() {
       // No usable app session: this may be the redirect back from Google.
       const oauthError = readOAuthErrorFromUrl();
       if (oauthError) {
-        if (!cancelled) setAuthNotice(oauthError);
+        console.warn('Google OAuth redirect error:', oauthError);
+        if (!cancelled) setAuthNotice(formatGoogleAuthError(oauthError, isBM));
         clearOAuthParamsFromUrl();
       }
 
@@ -60,7 +62,9 @@ function AppContent() {
         }
       } catch (e: any) {
         if (!cancelled) {
-          setAuthNotice(e?.message || 'Google sign-in failed. Please try again.');
+          const raw = e?.message || 'Google sign-in failed. Please try again.';
+          console.warn('Google sign-in bridge error:', raw);
+          setAuthNotice(formatGoogleAuthError(raw, isBM));
           clearOAuthParamsFromUrl();
         }
       } finally {
@@ -88,8 +92,8 @@ function AppContent() {
     if (user.tutorial_completed) { setTutorialOpen(false); return; }
 
     // Only the first successful login suggests the tutorial. `login_count` is
-    // null when the phase-6 migration has not been applied, in which case we do
-    // not interrupt an existing account.
+    // null when the column is missing, in which case we do not interrupt an
+    // existing account.
     const loginCount = typeof user.login_count === 'number' ? user.login_count : null;
     if (loginCount !== 1) { setTutorialOpen(false); return; }
 
@@ -118,8 +122,8 @@ function AppContent() {
 
   const closeTutorial = () => {
     setTutorialOpen(false);
-    if (user && user.role !== 'guest' && !user.tutorial_completed) {
-      markTutorialCompleted(true).catch(() => { /* ignore */ });
+    if (user && user.role !== 'guest' && !user.tutorial_completed && token) {
+      markTutorialCompleted(true, token).catch(() => { /* ignore */ });
       setUser((prev) => (prev ? { ...prev, tutorial_completed: true } : prev));
     }
   };
