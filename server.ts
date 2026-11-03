@@ -1242,10 +1242,17 @@ app.get('/api/recommendations', authenticateToken, async (req: any, res) => {
     const db = await getDB();
     const now = new Date();
     const curYear = now.getFullYear();
+    const todayIso = now.toISOString().split('T')[0];
+    // Upcoming holidays only (today onwards): past events get no travel advice.
+    // This year plus the start of next year so December still shows January.
     const holidays = await db.all(
-      `SELECT * FROM Holidays WHERE country = 'Malaysia' AND ${holidayYearWhere(curYear)}
-       ORDER BY ${HOLIDAY_ISO_DATE_SQL} ASC`,
-      []
+      `SELECT * FROM Holidays
+        WHERE country = 'Malaysia'
+          AND (${holidayYearWhere(curYear)} OR ${holidayYearWhere(curYear + 1)})
+          AND ${HOLIDAY_ISO_DATE_SQL} >= ?
+       ORDER BY ${HOLIDAY_ISO_DATE_SQL} ASC
+       LIMIT 8`,
+      [todayIso]
     );
 
     let origin = 'Butterworth';
@@ -2300,6 +2307,125 @@ app.post('/api/ai/assistant', async (req, res) => {
     res.status(500).json({ error: 'AI assistant failed.' });
   }
 });
+
+// ==========================================
+// NEARBY ATTRACTIONS (per station: curated Destinations + AI-generated)
+// ==========================================
+const ATTRACTIONS_CACHE_PATH = path.resolve(process.cwd(), 'attractions_cache.json');
+
+function readAttractionsCache(): Record<string, any> {
+  try {
+    if (fs.existsSync(ATTRACTIONS_CACHE_PATH)) {
+      return JSON.parse(fs.readFileSync(ATTRACTIONS_CACHE_PATH, 'utf8'));
+    }
+  } catch { /* corrupted cache is rebuilt */ }
+  return {};
+}
+
+function writeAttractionsCache(cache: Record<string, any>) {
+  try {
+    fs.writeFileSync(ATTRACTIONS_CACHE_PATH, JSON.stringify(cache, null, 2));
+  } catch (e) {
+    console.error('Attractions cache write failed:', e);
+  }
+}
+
+app.get('/api/stations/:id/attractions', authenticateToken, async (req: any, res) => {
+  try {
+    const stationId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(stationId)) return res.status(400).json({ error: 'Invalid station id.' });
+
+    const db = await getDB();
+    const station = await db.get('SELECT id, name, state FROM Stations WHERE id = ?', [stationId]);
+    if (!station) return res.status(404).json({ error: 'Station not found.' });
+
+    // Curated destinations on file for this station (table may not exist yet).
+    let curated: any[] = [];
+    try {
+      curated = await db.all(
+        'SELECT id, name, category, notes FROM Destinations WHERE nearest_station_id = ? ORDER BY name ASC',
+        [stationId]
+      );
+    } catch { curated = []; }
+
+    const cache = readAttractionsCache();
+    const cacheKey = String(stationId);
+    let aiItems: any[] | null = cache[cacheKey]?.attractions || null;
+    const refresh = req.query.refresh === '1' && req.user.role === 'admin';
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
+
+    if ((!aiItems || refresh) && apiKey) {
+      const prompt =
+        `List up to 8 real, well-known tourist attractions or points of interest near the "${station.name}" ` +
+        `train station in ${station.state}, Malaysia.\nRespond with ONLY a JSON array (no markdown, no commentary). ` +
+        `Each item: {"name": string, "category": string (one of Nature, Heritage, Food, Shopping, Culture, ` +
+        `Theme Park, Beach, Landmark, Museum, Other), "distance_km": number (approximate straight-line distance ` +
+        `from the station), "description": string (max 20 words)}. Sort by distance_km ascending.`;
+      try {
+        const geminiRes = await fetch(
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + encodeURIComponent(apiKey),
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }] }),
+          }
+        );
+        if (geminiRes.ok) {
+          const data = await geminiRes.json();
+          const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          const parsed = JSON.parse(text.replace(/```json|```/gi, '').trim());
+          if (Array.isArray(parsed)) {
+            aiItems = parsed
+              .filter((a: any) => a && typeof a.name === 'string')
+              .slice(0, 8)
+              .map((a: any) => ({
+                name: String(a.name).slice(0, 120),
+                category: String(a.category || 'Other').slice(0, 30),
+                distanceKm:
+                  typeof a.distance_km === 'number' && isFinite(a.distance_km)
+                    ? Math.round(a.distance_km * 10) / 10
+                    : null,
+                description: String(a.description || '').slice(0, 220),
+              }))
+              .sort((a: any, b: any) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
+            cache[cacheKey] = { generatedAt: new Date().toISOString(), attractions: aiItems };
+            writeAttractionsCache(cache);
+          }
+        } else {
+          console.error('Attractions Gemini error:', await geminiRes.text());
+        }
+      } catch (e) {
+        console.error('Attractions generation failed:', e);
+      }
+    }
+
+    const curatedItems = curated.map((d: any) => ({
+      name: d.name,
+      category: d.category || 'Other',
+      distanceKm: null as number | null,
+      description: d.notes || '',
+      source: 'curated' as const,
+    }));
+    const seen = new Set(curatedItems.map((c) => c.name.toLowerCase()));
+    const attractions = [
+      ...curatedItems,
+      ...(aiItems || [])
+        .filter((a) => !seen.has(a.name.toLowerCase()))
+        .map((a) => ({ ...a, source: 'ai' as const })),
+    ];
+
+    res.json({
+      station: { id: station.id, name: station.name, state: station.state },
+      attractions,
+      aiConfigured: Boolean(apiKey),
+      generatedAt: cache[cacheKey]?.generatedAt || null,
+    });
+  } catch (error) {
+    console.error('Attractions error:', error);
+    res.status(500).json({ error: 'Failed to load nearby attractions.' });
+  }
+});
+
 async function startServer() {
   // Ensure DB gets initialized on boot
   await getDB();

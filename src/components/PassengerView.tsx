@@ -7,6 +7,8 @@ import {
   ArrowRight, User as UserIcon, LogOut, ChevronRight, BookmarkPlus, HelpCircle
 } from 'lucide-react';
 import { apiFetch } from '../lib/api.ts';
+import DemandInsight from './DemandInsight.tsx';
+import StationAttractions from './StationAttractions.tsx';
 
 interface PassengerViewProps {
   user: User;
@@ -740,11 +742,12 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                       </p>
                     </div>
 
-                    <div className="mt-4 md:mt-0 text-center md:text-right">
-                      <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest leading-none mb-1">{'Ridership Load'}</p>
-                      <span className={`inline-flex items-center px-4 py-1 border text-sm font-bold rounded-full ${getDemandColor(predictionResult.demandLevel)}`}>
-                        {predictionResult.demandLevel}{' Demand'}
-                      </span>
+                    <div className="mt-4 md:mt-0 md:ml-6 flex-1">
+                      <DemandInsight
+                        level={predictionResult.demandLevel}
+                        predicted={predictionResult.predictedRidership}
+                        lang="en"
+                      />
                     </div>
                   </div>
 
@@ -838,6 +841,9 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
                   )}
                 </div>
               </div>
+
+              {/* Nearby attractions: click a station to explore */}
+              <StationAttractions stations={stations} token={token} lang="en" />
             </div>
           </div>
         )}
@@ -1277,7 +1283,7 @@ export default function PassengerView({ user, token }: PassengerViewProps) {
             ) : recommendations.length === 0 ? (
               <div className="text-center py-16 border border-dashed border-slate-200 rounded-2xl">
                 <Calendar className="w-10 h-10 text-slate-350 mx-auto" />
-                <p className="text-xs text-slate-400 mt-2">{'No holidays or recommendation maps defined for tracking.'}</p>
+                <p className="text-xs text-slate-400 mt-2">{'No upcoming holidays to plan for right now. Check back later.'}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4" id="recs-list">

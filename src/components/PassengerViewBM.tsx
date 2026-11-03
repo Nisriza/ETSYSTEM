@@ -6,6 +6,8 @@ import {
   ArrowRight, User as UserIcon, LogOut, ChevronRight, BookmarkPlus, HelpCircle
 } from 'lucide-react';
 import { apiFetch } from '../lib/api.ts';
+import DemandInsight from './DemandInsight.tsx';
+import StationAttractions from './StationAttractions.tsx';
 
 interface PassengerViewProps {
   user: User;
@@ -739,11 +741,12 @@ export default function PassengerViewBM({ user, token }: PassengerViewProps) {
                       </p>
                     </div>
 
-                    <div className="mt-4 md:mt-0 text-center md:text-right">
-                      <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest leading-none mb-1">{'Beban Penumpang'}</p>
-                      <span className={`inline-flex items-center px-4 py-1 border text-sm font-bold rounded-full ${getDemandColor(predictionResult.demandLevel)}`}>
-                        {({ Low: 'Rendah', Medium: 'Sederhana', High: 'Tinggi', 'Very High': 'Sangat Tinggi' } as Record<string, string>)[predictionResult.demandLevel] || predictionResult.demandLevel}{' Permintaan'}
-                      </span>
+                    <div className="mt-4 md:mt-0 md:ml-6 flex-1">
+                      <DemandInsight
+                        level={predictionResult.demandLevel}
+                        predicted={predictionResult.predictedRidership}
+                        lang="bm"
+                      />
                     </div>
                   </div>
 
@@ -837,6 +840,9 @@ export default function PassengerViewBM({ user, token }: PassengerViewProps) {
                   )}
                 </div>
               </div>
+
+              {/* Tarikan berdekatan: tekan stesen untuk meneroka */}
+              <StationAttractions stations={stations} token={token} lang="bm" />
             </div>
           </div>
         )}
@@ -1276,7 +1282,7 @@ export default function PassengerViewBM({ user, token }: PassengerViewProps) {
             ) : recommendations.length === 0 ? (
               <div className="text-center py-16 border border-dashed border-slate-200 rounded-2xl">
                 <Calendar className="w-10 h-10 text-slate-350 mx-auto" />
-                <p className="text-xs text-slate-400 mt-2">{'Tiada cuti atau peta cadangan ditakrifkan untuk penjejakan.'}</p>
+                <p className="text-xs text-slate-400 mt-2">{'Tiada cuti akan datang untuk dirancang buat masa ini. Semak semula nanti.'}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4" id="recs-list">

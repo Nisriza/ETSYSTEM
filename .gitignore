@@ -12,4 +12,7 @@ coverage/
 ml/model_daily.pkl
 ml/predictions_by_date.csv
 
+# AI-generated nearby-attractions cache
+attractions_cache.json
+
 ml/__pycache__/

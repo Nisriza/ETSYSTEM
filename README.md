@@ -10,8 +10,9 @@ Riders can check how busy a route is likely to be, plan around public holidays, 
 
 | Area | What it does |
 |---|---|
-| Ridership prediction | Forecasts passenger counts for an origin → destination pair using a Python/scikit-learn model with a statistical fallback. Returns a demand level (Low → Very High) |
-| Trip planning | Route availability check, holiday-aware recommendations, "consider travelling on …" alternatives, KTMB booking link |
+| Ridership prediction | Forecasts passenger counts for an origin → destination pair using a Python/scikit-learn model with a statistical fallback. Returns a demand level (Low → Very High) with an interactive explainer (crowd meter, per-level travel advice, "how is this predicted?") |
+| Nearby attractions | Click any station in the search sidebar to list tourist attractions near it, sorted by proximity (curated `Destinations` + cached Gemini suggestions) |
+| Trip planning | Route availability check, holiday-aware recommendations (**upcoming holidays only**), "consider travelling on …" alternatives, KTMB booking link |
 | Malaysian public holidays | National holidays synced from [Nager.Date](https://date.nager.at), admin-managed state holidays, and a public iCalendar feed for Google Calendar |
 | Saved trips & feedback | Passenger saved trips and crowd-level feedback |
 | Operator reports | Monthly report generation and CSV export |
@@ -201,6 +202,16 @@ Endpoints:
   npm start          # serve dist/ from Express on http://localhost:3000
   ```
   Dev mode also registers a worker (`devOptions.enabled`) so the install button is testable with `npm run dev`. Only Chromium-based browsers expose the native prompt; the manual instructions cover the rest.
+
+---
+
+## Nearby attractions (per station)
+
+- **UI:** the passenger Search sidebar has a **Nearby Attractions** card (EN: *Nearby Attractions* / BM: *Tarikan Berdekatan*). Click a station chip → the list appears below, **sorted by approximate distance**.
+- **API:** `GET /api/stations/:id/attractions` (any signed-in user, guests included). Response merges:
+  1. curated rows from the `Destinations` table (`nearest_station_id`), marked **On file**, and
+  2. AI-generated suggestions from Gemini (`name, category, distance_km, description`, max 8), cached per station in `attractions_cache.json` so repeat clicks are instant. Admins can force a refresh with `?refresh=1`.
+- **Requires** `GEMINI_API_KEY` on the API host (free key: [Google AI Studio](https://aistudio.google.com/apikey)). Without a key the card shows curated rows only, or a friendly "not configured" note — nothing breaks.
 
 ---
 
