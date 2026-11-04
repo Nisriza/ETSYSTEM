@@ -281,6 +281,8 @@ VITE_SUPABASE_ANON_KEY=<anon public key>
 
 Then **Redeploy with a rebuild** — Vite bakes `VITE_*` values into the bundle at build time, so changing them without rebuilding changes nothing. The two `VITE_SUPABASE_*` values are optional (the SPA can read them from `GET /api/auth/config`), but setting them removes one network round-trip. Google OAuth returns to the language the user started from (`/` or `/bm`), so both URLs must be allowlisted in Supabase.
 
+If the Vercel project belongs to a team you cannot open (the dashboard shows **You Need Access**), you do not need the dashboard: pushing to `main` still rebuilds the site. In that case edit the committed fallback in `src/lib/api.ts` — `PRODUCTION_API_FALLBACK` — to your API URL and push. The public site (`https://etsystem-zeta.vercel.app`) keeps working; only the internal `*.vercel.app` deployment URL is protected.
+
 ---
 
 ## Scripts
