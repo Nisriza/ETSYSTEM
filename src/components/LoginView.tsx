@@ -53,7 +53,7 @@ const COPY = {
     googleLabel: 'Sign in with Google',
     googleLoading: 'Redirecting to Google...',
     googleUnavailable:
-      'Google sign-in is not configured yet. Add SUPABASE_URL and SUPABASE_ANON_KEY on the API host, or VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY on Vercel.',
+      'Google sign-in needs the API server, which this deployment cannot reach yet. Deploy the API (README → Deployment), set VITE_API_BASE_URL on Vercel, then redeploy.',
     errRequired: 'Username and password are required.',
     errFullName: 'Please specify your Full Name.',
     errRegister: 'Failed to complete registration.',
@@ -117,7 +117,7 @@ const COPY = {
     googleLabel: 'Log masuk dengan Google',
     googleLoading: 'Mengalih ke Google...',
     googleUnavailable:
-      'Log masuk Google belum dikonfigurasikan. Tetapkan SUPABASE_URL dan SUPABASE_ANON_KEY pada hos API, atau VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di Vercel.',
+      'Log masuk Google memerlukan pelayan API, yang belum dapat dihubungi oleh deployment ini. Deploy API tersebut (README → Deployment), tetapkan VITE_API_BASE_URL di Vercel, kemudian deploy semula.',
     errRequired: 'Nama pengguna dan kata laluan diperlukan.',
     errFullName: 'Sila isi Nama Penuh anda.',
     errRegister: 'Pendaftaran gagal dilengkapkan.',

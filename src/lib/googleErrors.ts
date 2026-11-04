@@ -48,9 +48,10 @@ const COPY = {
     migrationHint: 'Fix: run supabase_migration_phase5.sql in the Supabase SQL Editor.',
 
     configTitle: 'Google sign-in is not configured',
-    configMsg: 'The server has no Supabase credentials yet.',
+    configMsg:
+      'This deployment cannot reach an API server yet, so it has no Supabase credentials to start Google sign-in.',
     configHint:
-      'Fix: set SUPABASE_URL and SUPABASE_ANON_KEY on the API host (or VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY on Vercel).',
+      'Fix: deploy the Node + Python API (Render/Railway/Fly — see README → Deployment), then set VITE_API_BASE_URL on Vercel to that API URL and redeploy. Locally, set SUPABASE_URL and SUPABASE_ANON_KEY in .env.local.',
 
     serverTitle: 'Sign-in could not be completed',
     serverMsg: 'The server rejected the Google session after sign-in.',
@@ -102,9 +103,10 @@ const COPY = {
     migrationHint: 'Penyelesaian: jalankan supabase_migration_phase5.sql dalam Supabase SQL Editor.',
 
     configTitle: 'Log masuk Google belum dikonfigurasikan',
-    configMsg: 'Pelayan belum mempunyai kredensial Supabase.',
+    configMsg:
+      'Deployment ini belum dapat menghubungi pelayan API, jadi ia tiada kredensial Supabase untuk memulakan log masuk Google.',
     configHint:
-      'Penyelesaian: tetapkan SUPABASE_URL dan SUPABASE_ANON_KEY pada hos API (atau VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di Vercel).',
+      'Penyelesaian: deploy API Node + Python (Render/Railway/Fly — lihat README → Deployment), kemudian tetapkan VITE_API_BASE_URL di Vercel kepada URL API itu dan deploy semula. Secara tempatan, tetapkan SUPABASE_URL dan SUPABASE_ANON_KEY dalam .env.local.',
 
     serverTitle: 'Log masuk tidak dapat disempurnakan',
     serverMsg: 'Pelayan menolak sesi Google selepas log masuk.',

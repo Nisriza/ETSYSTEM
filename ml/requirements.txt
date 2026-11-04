@@ -1,0 +1,9 @@
+# Python dependencies for ml/predict.py and ml/train.py.
+#
+# Pinned to the versions that produced the committed ml/model.pkl so unpickling
+# does not emit an "InconsistentVersionWarning" and predictions stay identical.
+# Re-pin only together with a retrain.
+numpy==2.3.4
+pandas==2.3.3
+scikit-learn==1.7.2
+joblib==1.5.2

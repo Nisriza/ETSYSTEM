@@ -1,0 +1,41 @@
+# Render Blueprint for the ETS Rider Predict API.
+#
+# Vercel only hosts the React SPA. The API spawns Python (ml/predict.py) and
+# retrains models (ml/train.py), so it must run on a persistent container host.
+#
+#   1. Push this repository to GitHub.
+#   2. Render Dashboard -> New + -> Blueprint -> select the repo -> Apply.
+#   3. Fill in the three Supabase values prompt-for below.
+#   4. Copy the service URL (e.g. https://etsystem-api.onrender.com) into
+#      Vercel as VITE_API_BASE_URL, then redeploy the SPA.
+#
+# Free plan note: the service sleeps after ~15 minutes of inactivity (the first
+# request afterwards takes ~30-60 s) and its filesystem is ephemeral, so files
+# written to train/ or ml/ disappear on the next deploy/restart. The CSVs and
+# model committed in the repo come back with every deploy.
+services:
+  - type: web
+    name: etsystem-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Required: the API reads/writes the database through Supabase.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # Required by the Google bridge and GET /api/auth/config.
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      # Browser origins allowed to call this API (comma separated).
+      - key: CORS_ORIGINS
+        value: https://etsystem-zeta.vercel.app,http://localhost:3000
+      # Optional: add GEMINI_API_KEY later in the dashboard (Environment) to
+      # enable live AI attraction suggestions. Left out of the blueprint so the
+      # first deploy does not wait for a value.

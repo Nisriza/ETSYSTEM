@@ -1,0 +1,16 @@
+# Keep the build context small and never bake local secrets into the image.
+node_modules
+dist
+dev-dist
+.git
+.playwright-cli
+.agents
+.env
+.env.*
+*.log
+
+# Runtime artefacts that are rebuilt/recreated on the host. The committed
+# ml/model.pkl, train/*.csv and historical/*.csv are intentionally included.
+ml/__pycache__
+ml/model_daily.pkl
+ml/predictions_by_date.csv

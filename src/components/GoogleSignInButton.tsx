@@ -55,7 +55,7 @@ export default function GoogleSignInButton({
   label,
   redirectPath = '/',
   loadingLabel = 'Redirecting to Google...',
-  unavailableMessage = 'Google sign-in is not configured yet. Add SUPABASE_URL and SUPABASE_ANON_KEY on the API host (or VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY on Vercel).',
+  unavailableMessage = 'Google sign-in needs the API server, which this deployment cannot reach yet. Deploy the API, set VITE_API_BASE_URL on Vercel, then redeploy.',
   disabled = false,
   onError,
 }: GoogleSignInButtonProps) {

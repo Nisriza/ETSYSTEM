@@ -236,29 +236,50 @@ date,actual_ridership,predicted_ridership,error,demand_level
 
 ## Deployment
 
-This app has a Node server that spawns Python, reads/writes `model.pkl` (~143 MB) and `train/`/`historical/` CSVs, and runs multi-minute retraining. That cannot run on serverless functions, so it deploys as **two pieces**:
+The app has two pieces, because the API spawns Python (`ml/predict.py`), retrains models (`ml/train.py`) and keeps `ml/model.pkl` (~143 MB) plus `train/` / `historical/` CSVs on disk. Vercel/Netlify serverless functions cannot do that.
 
-### 1. API host — Render / Railway / Fly (or any persistent Node host)
+| Piece | Host | Serves |
+|---|---|---|
+| SPA | Vercel | `dist/` only — its rewrites deliberately exclude `/api` |
+| API | Render / Railway / Fly (Docker) | Express routes, Python inference, retraining, Google bridge |
 
-- Build: `npm install`
-- Start: `npm run build && npm start` (or `npm run dev` for a demo)
-- Environment: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `CORS_ORIGINS`, `GEMINI_API_KEY`
-- Attach a **persistent disk** and install Python 3 + the ML dependencies so predictions, `ml/predictions_by_date.csv` and retraining survive restarts. The seed `train/ets_YYYY.csv` files travel with the repo (they reappear on every deploy), but uploaded CSVs and generated files do **not** — Vercel never sees them at all, it only hosts the built SPA.
-- Note the public URL, e.g. `https://etsystem-api.onrender.com`.
+> **The Vercel site by itself cannot sign anyone in** — password or Google. Every `/api/...` request on the Vercel domain returns a plain 404 until `VITE_API_BASE_URL` points at a running API host.
+
+### 1. API host — Render (one click)
+
+`render.yaml` and `Dockerfile` are ready for this repo. The Dockerfile installs Node 20 plus Python 3 with the pinned ML dependencies from `ml/requirements.txt`, because `src/lib/predictor.ts` shells out to `python`.
+
+1. Push the repo to GitHub (already `Nisriza/ETSYSTEM`).
+2. Render Dashboard → **New +** → **Blueprint** → pick this repo → **Apply**. This creates the web service, the `/api/health` probe and the environment-variable slots.
+3. Fill in the values it prompts for:
+   - `SUPABASE_URL` — `https://<project-ref>.supabase.co`
+   - `SUPABASE_SERVICE_ROLE_KEY` — Supabase → Settings → API → `service_role`
+   - `SUPABASE_ANON_KEY` — Supabase → Settings → API → `anon public`
+   - `GEMINI_API_KEY` is optional; add it later under **Environment** to enable live AI attraction suggestions.
+4. When the deploy is live, confirm:
+   ```text
+   GET https://<service>.onrender.com/api/health        -> {"ok":true,...}
+   GET https://<service>.onrender.com/api/auth/config   -> googleSignIn.enabled = true
+   ```
+5. Copy the service URL — the SPA needs it in step 2.
+
+Already on Railway or Fly? Deploy the same `Dockerfile`, set the same variables plus `CORS_ORIGINS`, and expose the injected `PORT`.
+
+Free-plan notes: the Render service sleeps after ~15 minutes idle (the next request takes ~30–60 s), and the container filesystem is ephemeral — uploaded CSVs and retrained `ml/*.pkl` reset on redeploy/restart. The committed `train/` CSVs and `ml/model.pkl` come back with every deploy. Attach a Render disk (paid) if uploads must survive.
 
 ### 2. Frontend — Vercel
 
-`vercel.json` builds only the SPA (`npx vite build` → `dist`) and rewrites unknown paths to `index.html` (excluding `/api`). Cache headers keep hashed assets immutable while `sw.js`/`index.html` stay revalidated.
+`vercel.json` builds only the SPA (`npx vite build` → `dist`) and rewrites unknown paths to `index.html` (excluding `/api`). Cache headers keep hashed assets immutable while `sw.js` / `index.html` stay revalidated.
 
-Set in **Project → Settings → Environment Variables**:
+Set in **Project → Settings → Environment Variables** (Production, and Preview if used):
 
 ```text
-VITE_API_BASE_URL=https://etsystem-api.onrender.com
+VITE_API_BASE_URL=https://<service>.onrender.com
 VITE_SUPABASE_URL=https://<project-ref>.supabase.co
-VITE_SUPABASE_ANON_KEY=<anon key>
+VITE_SUPABASE_ANON_KEY=<anon public key>
 ```
 
-Then redeploy (Vite bakes these in at build time). The two `VITE_SUPABASE_*` values are optional: without them the SPA reads the public Supabase URL/anon key from `GET /api/auth/config` on the API host, so Google sign-in keeps working in both languages. Google OAuth returns to the language the user started from (`/` or `/bm`), so both URLs must be allowlisted in Supabase.
+Then **Redeploy with a rebuild** — Vite bakes `VITE_*` values into the bundle at build time, so changing them without rebuilding changes nothing. The two `VITE_SUPABASE_*` values are optional (the SPA can read them from `GET /api/auth/config`), but setting them removes one network round-trip. Google OAuth returns to the language the user started from (`/` or `/bm`), so both URLs must be allowlisted in Supabase.
 
 ---
 
@@ -291,6 +312,10 @@ src/
   lib/predictor.ts            Model metrics, training orchestration, Python invocation
   db/sqlite.ts                Supabase SQL adapter (exec_sql RPC)
 ml/                           train.py / predict.py / model artefacts
+  requirements.txt            Pinned Python deps installed by the Dockerfile
+Dockerfile                    Node 20 + Python 3 image for the API host
+render.yaml                   Render Blueprint (one-click API deploy)
+.dockerignore                 Keeps node_modules/dist/.env out of the image
 public/icons/                 Generated PWA icons
 supabase_schema.sql           Fresh schema + seed data (the only SQL file to run)
 vite.config.ts                Vite + VitePWA configuration
@@ -304,8 +329,10 @@ vercel.json                   SPA hosting config for the Vercel frontend
 | Symptom | Fix |
 |---|---|
 | `Supabase is not configured` | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` missing from `.env.local` |
-| **"Network error. Please try again."** on the deployed site (guest *and* normal login) | The SPA has no API host. `VITE_API_BASE_URL` was empty at build time, so `/api/...` hits Vercel and returns a plain-text 404. Set it on Vercel and **redeploy with a rebuild** |
+| **"Google sign-in is not configured / the server has no Supabase credentials"** | The SPA cannot reach an API host, so it has nowhere to get the public Supabase credentials or exchange the Google session. Deploy the API (README → Deployment, step 1), set `VITE_API_BASE_URL` on Vercel (step 2) and **redeploy with a rebuild**. Check `GET https://<api-host>/api/health` first |
+| **"Network error. Please try again."** on the deployed site (guest *and* normal login) | Same root cause: `VITE_API_BASE_URL` was empty at build time, so `/api/...` hits Vercel and returns a plain-text 404. Set it on Vercel and **redeploy with a rebuild** |
 | `GET/POST https://<vercel-app>/api/...` returns `404 text/plain` | Same cause: Vercel only hosts the SPA. Deploy the Express/Python API to Render/Railway/Fly and point `VITE_API_BASE_URL` at it |
+| Health check fails / deploy never goes live | `GET https://<api-host>/api/health` must return `{"ok":true,...}`. Check the Render build log for the Python install step and that `PORT` is not hard-coded anywhere |
 | Google button missing in production | Set `SUPABASE_URL` + `SUPABASE_ANON_KEY` on the API host, or `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` on Vercel (then rebuild) |
 | Google button appears only in one language / one page shows an old app | A stale PWA worker is serving an old cached `/` shell. Reload once (the new worker replaces itself), or clear site data. The versioned SW registration in `src/main.tsx` prevents it recurring |
 | `Database schema missing` on Google login | Run `supabase_schema.sql` in the new Supabase project |

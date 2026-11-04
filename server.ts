@@ -392,6 +392,14 @@ function supabaseApiKey(): string {
   );
 }
 
+// Liveness probe for the hosting platform (Render/Railway/Fly health checks).
+// Deliberately does not touch Supabase or Python, so a slow database never
+// marks the container unhealthy.
+app.get('/api/health', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ ok: true, service: 'ets-rider-predict-api', time: new Date().toISOString() });
+});
+
 // Public runtime config for the browser. Hosting the public Supabase URL and
 // anon key here means the SPA still gets Google sign-in when Vercel was built
 // without the VITE_SUPABASE_* variables. Never expose the service-role key.
