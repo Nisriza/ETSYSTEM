@@ -10,6 +10,7 @@ Riders can check how busy a route is likely to be, plan around public holidays, 
 
 | Area | What it does |
 |---|---|
+| Public landing page | Signed-out visitors get a bilingual ETS information page before any login: journey planner, corridor line map, service classes, on-board facilities, how the forecast works, popular journeys and an FAQ. Sign In/Register reveal a hover/focus preview card and then the login screen; guests can start a session in one click |
 | Ridership prediction | Forecasts passenger counts for an origin → destination pair using a Python/scikit-learn model with a statistical fallback. Returns a demand level (Low → Very High) with an interactive explainer (crowd meter, per-level travel advice, "how is this predicted?") |
 | Nearby attractions | Click any station in the search sidebar to list tourist attractions near it, sorted by proximity (curated `Destinations` + cached Gemini suggestions) |
 | Trip planning | Route availability check, holiday-aware recommendations (**upcoming holidays only**), "consider travelling on …" alternatives, KTMB booking link |
@@ -20,6 +21,8 @@ Riders can check how busy a route is likely to be, plan around public holidays, 
 | AI assistant | Optional floating assistant powered by Google Gemini (disabled when `GEMINI_API_KEY` is empty) |
 | PWA | Installable app: manifest, generated service worker, offline app shell, install/open control with platform-aware instructions |
 | Auth | Username/password, guest access, and **Google sign-in via Supabase**; language-aware tutorial on first login |
+
+**Visual identity.** The palette — deep blue `#3162a6`, rail blue `#0387b5`, gold `#f1be1f` — is sampled from the KTMB logo and applied globally in `src/index.css`, including a remap of Tailwind's `indigo-*` scale so every existing screen follows it. Landing-page photographs are CC BY-SA files from Wikimedia Commons, credited in the page footer and in `public/images/ets/CREDITS.md`.
 
 ---
 
