@@ -42,7 +42,7 @@ export default defineConfig(() => ({
         display_override: ['standalone', 'minimal-ui'],
         orientation: 'portrait-primary',
         background_color: '#f8fafc',
-        theme_color: '#4f46e5',
+        theme_color: '#3162a6',
         categories: ['travel', 'navigation', 'productivity'],
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },

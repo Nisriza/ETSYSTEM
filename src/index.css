@@ -1,15 +1,58 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", -apple-system, system-ui, sans-serif;
   --font-display: "Inter", -apple-system, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* KTMB-inspired brand palette, sampled from the operator's logo. */
+  --color-brand-50: #eef5fb;
+  --color-brand-100: #d9e8f5;
+  --color-brand-200: #b6d3ea;
+  --color-brand-300: #85b7dd;
+  --color-brand-400: #4a93c4;
+  --color-brand-500: #1f75ab;
+  --color-brand-600: #3162a6;
+  --color-brand-700: #27508a;
+  --color-brand-800: #1e3d69;
+  --color-brand-900: #172f52;
+  --color-brand-950: #0f1f38;
+
+  --color-rail-400: #35a9d0;
+  --color-rail-500: #0387b5;
+  --color-rail-600: #0583c0;
+
+  --color-gold-50: #fdf9e6;
+  --color-gold-100: #fbf0c1;
+  --color-gold-200: #f8e28a;
+  --color-gold-300: #f4d04a;
+  --color-gold-400: #f1be1f;
+  --color-gold-500: #e0a800;
+  --color-gold-600: #a97c00;
+  --color-gold-700: #7a5900;
+
+  /*
+   * The existing screens use Tailwind's `indigo-*` utilities in ~280 places.
+   * Remapping that scale here recolours the whole system at once and keeps the
+   * markup untouched, instead of risking missed classes during a rename.
+   */
+  --color-indigo-50: #eef5fb;
+  --color-indigo-100: #d9e8f5;
+  --color-indigo-200: #b6d3ea;
+  --color-indigo-300: #85b7dd;
+  --color-indigo-400: #4a93c4;
+  --color-indigo-500: #1f75ab;
+  --color-indigo-600: #3162a6;
+  --color-indigo-700: #27508a;
+  --color-indigo-800: #1e3d69;
+  --color-indigo-900: #172f52;
+  --color-indigo-950: #0f1f38;
 }
 
 :root {
-  --primary: #4f46e5;
-  --primary-hover: #4338ca;
+  --primary: #3162a6;
+  --primary-hover: #27508a;
   --bg: #f8fafc;
   --card: #ffffff;
   --text-main: #1e293b;
@@ -18,14 +61,31 @@
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
-  --accent: #f97316;
+  --accent: #d99e00;
 }
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
   body {
     background-color: #f8fafc;
     color: #1e293b;
     font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  }
+
+  a:focus-visible,
+  button:focus-visible,
+  summary:focus-visible {
+    outline: 2px solid #0387b5;
+    outline-offset: 2px;
   }
 }
 
@@ -49,12 +109,12 @@
 }
 
 .sleek-input:focus {
-  border-color: #4f46e5;
-  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+  border-color: #3162a6;
+  box-shadow: 0 0 0 2px rgba(49, 98, 166, 0.12);
 }
 
 .sleek-btn-primary {
-  background: #4f46e5;
+  background: #3162a6;
   color: white;
   padding: 10px 20px;
   border: none;
@@ -70,7 +130,7 @@
 }
 
 .sleek-btn-primary:hover {
-  background: #4338ca;
+  background: #27508a;
 }
 
 .sleek-btn-secondary {
@@ -95,9 +155,9 @@
 }
 
 .sleek-holiday-card {
-  border-left: 4px solid #f97316;
+  border-left: 4px solid #d99e00;
   padding: 12px;
-  background: #fffaf0;
+  background: #fffdf3;
   border-radius: 4px 8px 8px 4px;
   margin-bottom: 12px;
 }

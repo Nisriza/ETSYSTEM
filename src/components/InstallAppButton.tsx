@@ -195,8 +195,8 @@ export default function InstallAppButton({ lang = 'en', appearance = 'compact', 
 
   const compactClass = [
     'inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[11px] font-bold transition',
-    mode === 'install' && 'cursor-pointer bg-[#4f46e5] text-white shadow-sm hover:bg-[#4338ca]',
-    mode === 'installed' && 'cursor-pointer border border-[#c7d2fe] bg-white text-[#4f46e5] hover:bg-[#eef2ff]',
+    mode === 'install' && 'cursor-pointer bg-[#3162a6] text-white shadow-sm hover:bg-[#27508a]',
+    mode === 'installed' && 'cursor-pointer border border-[#b6d3ea] bg-white text-[#3162a6] hover:bg-[#eef5fb]',
     mode === 'standalone' && 'border border-emerald-200 bg-emerald-50 text-emerald-700',
     className || '',
   ]
@@ -296,7 +296,7 @@ export default function InstallAppButton({ lang = 'en', appearance = 'compact', 
             <button
               type="button"
               onClick={() => setHelpOpen(false)}
-              className="mt-5 w-full cursor-pointer rounded-xl bg-[#4f46e5] py-2.5 text-xs font-bold text-white transition hover:bg-[#4338ca]"
+              className="mt-5 w-full cursor-pointer rounded-xl bg-[#3162a6] py-2.5 text-xs font-bold text-white transition hover:bg-[#27508a]"
               id="install-help-close"
             >
               {t.gotIt}

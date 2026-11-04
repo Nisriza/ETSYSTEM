@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { User } from '../types.ts';
-import { Train, User as UserIcon, Lock, Loader2, ArrowRight, CheckCircle2, UserRound } from 'lucide-react';
+import { Train, User as UserIcon, Lock, Loader2, ArrowRight, ArrowLeft, CheckCircle2, UserRound } from 'lucide-react';
 import GoogleSignInButton from './GoogleSignInButton.tsx';
 import InstallAppButton from './InstallAppButton.tsx';
 import { apiFetch } from '../lib/api.ts';
@@ -16,6 +16,10 @@ interface LoginViewProps {
   redirectPath?: string;
   /** Current UI language; the login screen copy follows it. */
   lang?: LoginLang;
+  /** Which form to show when the card opens. */
+  initialMode?: 'signin' | 'register';
+  /** Returns to the public ETS information page. */
+  onBackToLanding?: () => void;
 }
 
 const COPY = {
@@ -82,6 +86,7 @@ const COPY = {
     guestIntro: 'Would you like a quick step-by-step tutorial on how to predict ridership?',
     guestYes: 'Yes, start tutorial',
     guestSkip: 'Skip for now',
+    backToLanding: 'Back to ETS information',
   },
   bm: {
     brandTag: 'Perkhidmatan Kereta Api Elektrik',
@@ -146,6 +151,7 @@ const COPY = {
     guestIntro: 'Adakah anda ingin melihat tutorial ringkas langkah demi langkah cara meramal jumlah penumpang?',
     guestYes: 'Ya, mula tutorial',
     guestSkip: 'Langkau',
+    backToLanding: 'Kembali ke maklumat ETS',
   },
 };
 
@@ -154,11 +160,13 @@ export default function LoginView({
   initialError = null,
   lang = 'en',
   redirectPath = lang === 'bm' ? '/bm' : '/',
+  initialMode = 'signin',
+  onBackToLanding,
 }: LoginViewProps) {
   const language: LoginLang = lang === 'bm' ? 'bm' : 'en';
   const c = COPY[language];
 
-  const [isRegister, setIsRegister] = useState(false);
+  const [isRegister, setIsRegister] = useState(initialMode === 'register');
   const [isForgot, setIsForgot] = useState(false);
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
@@ -336,14 +344,27 @@ export default function LoginView({
   };
 
   return (
-    <div className="min-h-screen bg-[#f1f5f9] px-4 py-8 font-sans flex items-center justify-center md:py-12" id="login-container">
-      <div
-        className="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-[#e2e8f0] bg-white shadow-xl lg:grid-cols-[1.02fr_0.98fr]"
-        id="login-card"
-      >
+    <div className="min-h-screen bg-[#f1f5f9] px-4 py-8 font-sans flex flex-col items-center justify-center md:py-12" id="login-container">
+      <div className="w-full max-w-5xl">
+        {onBackToLanding && (
+          <button
+            type="button"
+            onClick={onBackToLanding}
+            className="mb-3 inline-flex cursor-pointer items-center gap-1.5 px-0.5 py-1 text-[11.5px] font-bold text-[#475569] transition hover:text-[#3162a6]"
+            id="btn-back-to-landing"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            {c.backToLanding}
+          </button>
+        )}
+
+        <div
+          className="grid w-full overflow-hidden rounded-3xl border border-[#e2e8f0] bg-white shadow-xl lg:grid-cols-[1.02fr_0.98fr]"
+          id="login-card"
+        >
         {/* Brand + install column */}
         <aside
-          className="relative flex min-w-0 flex-col overflow-hidden bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#4338ca] p-7 text-white md:p-9"
+          className="relative flex min-w-0 flex-col overflow-hidden bg-gradient-to-br from-[#0f1f38] via-[#172f52] to-[#27508a] p-7 text-white md:p-9"
           id="brand-header"
         >
           <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-white/10 blur-2xl" aria-hidden="true" />
@@ -364,7 +385,7 @@ export default function LoginView({
                   if (language === 'bm') window.location.href = '/';
                 }}
                 className={`cursor-pointer rounded-md px-2.5 py-1 transition ${
-                  language === 'en' ? 'bg-white text-[#4f46e5] shadow-sm' : 'text-indigo-100 hover:text-white'
+                  language === 'en' ? 'bg-white text-[#3162a6] shadow-sm' : 'text-indigo-100 hover:text-white'
                 }`}
               >
                 EN
@@ -375,7 +396,7 @@ export default function LoginView({
                   if (language !== 'bm') window.location.href = '/bm';
                 }}
                 className={`cursor-pointer rounded-md px-2.5 py-1 transition ${
-                  language === 'bm' ? 'bg-white text-[#4f46e5] shadow-sm' : 'text-indigo-100 hover:text-white'
+                  language === 'bm' ? 'bg-white text-[#3162a6] shadow-sm' : 'text-indigo-100 hover:text-white'
                 }`}
               >
                 BM
@@ -453,7 +474,7 @@ export default function LoginView({
                   resetAlerts();
                   setGuestPrompt(true);
                 }}
-                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#e2e8f0] bg-white py-2.5 text-xs font-bold text-[#475569] transition hover:border-[#c7d2fe] hover:bg-slate-50 hover:text-[#4f46e5]"
+                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#e2e8f0] bg-white py-2.5 text-xs font-bold text-[#475569] transition hover:border-[#b6d3ea] hover:bg-slate-50 hover:text-[#3162a6]"
               >
                 <UserRound className="h-4 w-4" />
                 {c.guest}
@@ -479,7 +500,7 @@ export default function LoginView({
                     id="fullname"
                     type="text"
                     required
-                    className="h-10 w-full rounded-xl border border-[#e2e8f0] bg-[#f8fafc] py-2 pl-10 pr-4 text-xs font-semibold text-[#1e293b] transition focus:border-[#4f46e5] focus:bg-white focus:outline-none"
+                    className="h-10 w-full rounded-xl border border-[#e2e8f0] bg-[#f8fafc] py-2 pl-10 pr-4 text-xs font-semibold text-[#1e293b] transition focus:border-[#3162a6] focus:bg-white focus:outline-none"
                     placeholder={c.fullNamePlaceholder}
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
@@ -499,7 +520,7 @@ export default function LoginView({
                   type="text"
                   required
                   autoCapitalize="none"
-                  className="h-10 w-full rounded-xl border border-[#e2e8f0] bg-[#f8fafc] py-2 pl-10 pr-4 text-xs font-semibold text-[#1e293b] transition focus:border-[#4f46e5] focus:bg-white focus:outline-none"
+                  className="h-10 w-full rounded-xl border border-[#e2e8f0] bg-[#f8fafc] py-2 pl-10 pr-4 text-xs font-semibold text-[#1e293b] transition focus:border-[#3162a6] focus:bg-white focus:outline-none"
                   placeholder={c.usernamePlaceholder}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -517,7 +538,7 @@ export default function LoginView({
                   id="password"
                   type="password"
                   required
-                  className="h-10 w-full rounded-xl border border-[#e2e8f0] bg-[#f8fafc] py-2 pl-10 pr-4 text-xs font-semibold text-[#1e293b] transition focus:border-[#4f46e5] focus:bg-white focus:outline-none"
+                  className="h-10 w-full rounded-xl border border-[#e2e8f0] bg-[#f8fafc] py-2 pl-10 pr-4 text-xs font-semibold text-[#1e293b] transition focus:border-[#3162a6] focus:bg-white focus:outline-none"
                   placeholder={c.passwordPlaceholder}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -536,7 +557,7 @@ export default function LoginView({
                       id={`btn-role-${role}`}
                       className={`cursor-pointer break-words rounded-xl border px-1 py-2 text-center text-[10.5px] font-bold leading-tight transition sm:text-xs ${
                         userType === role
-                          ? 'border-[#4f46e5] bg-[#e0e7ff]/40 text-[#4f46e5]'
+                          ? 'border-[#3162a6] bg-[#d9e8f5]/40 text-[#3162a6]'
                           : 'border-[#e2e8f0] bg-white text-[#64748b] hover:bg-slate-50'
                       }`}
                       onClick={() => setUserType(role)}
@@ -552,7 +573,7 @@ export default function LoginView({
               id="btn-auth-submit"
               type="submit"
               disabled={loading}
-              className="mt-1 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#4f46e5] py-2.5 text-xs font-bold text-white transition hover:bg-[#4338ca] disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-1 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#3162a6] py-2.5 text-xs font-bold text-white transition hover:bg-[#27508a] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
                 <>
@@ -572,7 +593,7 @@ export default function LoginView({
                 <button
                   id="btn-forgot-password"
                   type="button"
-                  className="cursor-pointer text-xs font-medium text-[#64748b] transition hover:text-[#4f46e5]"
+                  className="cursor-pointer text-xs font-medium text-[#64748b] transition hover:text-[#3162a6]"
                   onClick={() => {
                     setIsForgot(true);
                     resetAlerts();
@@ -588,7 +609,7 @@ export default function LoginView({
             <button
               id="btn-toggle-auth-mode"
               type="button"
-              className="cursor-pointer text-xs font-bold text-[#4f46e5] transition hover:text-[#4338ca]"
+              className="cursor-pointer text-xs font-bold text-[#3162a6] transition hover:text-[#27508a]"
               onClick={() => {
                 setIsRegister(!isRegister);
                 resetAlerts();
@@ -598,6 +619,7 @@ export default function LoginView({
             </button>
           </div>
         </section>
+        </div>
       </div>
 
       {/* Forgot Password Modal */}
@@ -618,7 +640,7 @@ export default function LoginView({
                 <label className="mb-1 block text-xs font-semibold text-slate-500">{c.forgotUsername}</label>
                 <input
                   type="text"
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#4f46e5] focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#3162a6] focus:outline-none"
                   placeholder={c.forgotUsernamePlaceholder}
                   value={forgotUsername}
                   onChange={(e) => setForgotUsername(e.target.value)}
@@ -628,7 +650,7 @@ export default function LoginView({
                 <label className="mb-1 block text-xs font-semibold text-slate-500">{c.forgotNew}</label>
                 <input
                   type="password"
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#4f46e5] focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#3162a6] focus:outline-none"
                   placeholder={c.forgotNewPlaceholder}
                   value={forgotNewPassword}
                   onChange={(e) => setForgotNewPassword(e.target.value)}
@@ -638,7 +660,7 @@ export default function LoginView({
                 <label className="mb-1 block text-xs font-semibold text-slate-500">{c.forgotConfirm}</label>
                 <input
                   type="password"
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#4f46e5] focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#3162a6] focus:outline-none"
                   placeholder={c.forgotConfirmPlaceholder}
                   value={forgotConfirmPassword}
                   onChange={(e) => setForgotConfirmPassword(e.target.value)}
@@ -649,7 +671,7 @@ export default function LoginView({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 cursor-pointer rounded-xl bg-[#4f46e5] py-2.5 text-xs font-bold text-white transition hover:bg-[#4338ca] disabled:opacity-50"
+                  className="flex-1 cursor-pointer rounded-xl bg-[#3162a6] py-2.5 text-xs font-bold text-white transition hover:bg-[#27508a] disabled:opacity-50"
                 >
                   {loading ? c.forgotSubmitting : c.forgotSubmit}
                 </button>
@@ -678,7 +700,7 @@ export default function LoginView({
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 onClick={() => startGuestSession(true)}
-                className="flex-1 cursor-pointer rounded-xl bg-[#4f46e5] py-2.5 text-xs font-bold text-white transition hover:bg-[#4338ca]"
+                className="flex-1 cursor-pointer rounded-xl bg-[#3162a6] py-2.5 text-xs font-bold text-white transition hover:bg-[#27508a]"
                 id="guest-start-tutorial"
               >
                 {c.guestYes}

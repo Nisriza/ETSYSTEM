@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { User } from './types.ts';
 import LoginView from './components/LoginView.tsx';
+import LandingPage from './components/LandingPage.tsx';
+import type { AuthMode } from './components/AuthHoverCard.tsx';
 import PassengerView from './components/PassengerView.tsx';
 import PassengerViewBM from './components/PassengerViewBM.tsx';
 import OperatorView from './components/OperatorView.tsx';
@@ -31,8 +33,20 @@ function AppContent() {
   const [tutorialOpen, setTutorialOpen] = useState(false);
   // Shown on the login card when Google sign-in fails after the redirect back.
   const [authNotice, setAuthNotice] = useState<string | null>(null);
+  // Signed-out screens: the public ETS information page is the default; the
+  // login card is opened from it and then stays open.
+  const [showLogin, setShowLogin] = useState(
+    () => typeof window !== 'undefined' && hasOAuthCallbackInUrl()
+  );
+  const [loginMode, setLoginMode] = useState<AuthMode>('signin');
   const lang = window.location.pathname.startsWith('/bm') ? 'bm' : 'en';
   const isBM = lang === 'bm';
+
+  // Any auth problem (Google redirect, missing API host) belongs on the login
+  // card, where the message and the alternatives are visible.
+  useEffect(() => {
+    if (authNotice) setShowLogin(true);
+  }, [authNotice]);
 
   // Keep the document language in sync for screen readers and translation tools.
   useEffect(() => {
@@ -188,6 +202,27 @@ function AppContent() {
     localStorage.setItem('user_token', sessionToken);
   };
 
+  /**
+   * Guest access from the landing page. The same `/api/auth/guest` endpoint is
+   * used by the login card; doing it here saves the user a second click.
+   */
+  const handleGuestLogin = async () => {
+    let res: Response;
+    try {
+      res = await apiFetch('/api/auth/guest', { method: 'POST' });
+    } catch {
+      throw new Error(isBM ? 'Ralat rangkaian. Sila cuba lagi.' : 'Network error. Please try again.');
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(
+        data?.error || (isBM ? 'Tidak dapat memulakan sesi tetamu.' : 'Could not start a guest session.')
+      );
+    }
+    localStorage.removeItem('show_tutorial');
+    handleLoginSuccess(data.user, data.token);
+  };
+
   const handleLogout = async () => {
     if (token) {
       try {
@@ -204,6 +239,9 @@ function AppContent() {
     setUser(null);
     setToken(null);
     localStorage.removeItem('user_token');
+    // Return to the public information page, not straight to the login card.
+    setShowLogin(false);
+    setLoginMode('signin');
   };
 
   if (initializing) {
@@ -216,12 +254,30 @@ function AppContent() {
   }
 
   if (!user || !token) {
+    if (showLogin) {
+      return (
+        <LoginView
+          onLoginSuccess={handleLoginSuccess}
+          initialError={authNotice}
+          initialMode={loginMode}
+          onBackToLanding={() => {
+            setShowLogin(false);
+            setAuthNotice(null);
+          }}
+          lang={isBM ? 'bm' : 'en'}
+          redirectPath={isBM ? '/bm' : '/'}
+        />
+      );
+    }
+
     return (
-      <LoginView
-        onLoginSuccess={handleLoginSuccess}
-        initialError={authNotice}
+      <LandingPage
         lang={isBM ? 'bm' : 'en'}
-        redirectPath={isBM ? '/bm' : '/'}
+        onAuth={(mode) => {
+          setLoginMode(mode);
+          setShowLogin(true);
+        }}
+        onGuest={handleGuestLogin}
       />
     );
   }
@@ -231,13 +287,13 @@ function AppContent() {
       <header className="bg-white border-b border-[#e2e8f0] text-[#1e293b]" id="main-app-header">
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-3.5 flex flex-wrap items-center justify-between gap-y-2.5" id="header-wrapper">
           <div className="flex items-center gap-3">
-            <div className="bg-[#4f46e5] p-2.5 rounded-xl text-white shadow-sm">
+            <div className="bg-[#3162a6] p-2.5 rounded-xl text-white shadow-sm">
               <Train className="h-5.5 w-5.5" />
             </div>
             <div>
               <h1 className="font-display font-extrabold text-[#111827] text-base md:text-lg tracking-tight leading-none flex items-center gap-1.5">
                 {'ETS Rider Predict System'}
-                <span className="text-[10px] font-bold bg-[#e0e7ff] text-[#4f46e5] px-1.5 py-0.5 rounded-full uppercase tracking-wider">{isBM ? 'PRO' : 'PRO'}</span>
+                <span className="text-[10px] font-bold bg-[#d9e8f5] text-[#3162a6] px-1.5 py-0.5 rounded-full uppercase tracking-wider">{isBM ? 'PRO' : 'PRO'}</span>
               </h1>
               <p className="text-[10.5px] text-[#64748b] font-medium mt-1">
                 {isBM ? 'Sistem Ramalan Ridership Pengangkutan Awam & Perancangan Perjalanan' : 'Public Transport Ridership Prediction & Travel Planning System'}
@@ -251,7 +307,7 @@ function AppContent() {
               id="btn-help-tutorial"
               type="button"
               onClick={() => setTutorialOpen(true)}
-              className="p-2 rounded-xl border border-[#e2e8f0] bg-white text-[#64748b] hover:text-[#4f46e5] hover:border-[#c7d2fe] transition cursor-pointer"
+              className="p-2 rounded-xl border border-[#e2e8f0] bg-white text-[#64748b] hover:text-[#3162a6] hover:border-[#b6d3ea] transition cursor-pointer"
               title={isBM ? 'Tutorial / Cara Guna' : 'Tutorial / How to Use'}
             >
               <HelpCircle className="h-4 w-4" />
@@ -259,13 +315,13 @@ function AppContent() {
             <div className="inline-flex items-center bg-[#f1f5f9] border border-[#e2e8f0] rounded-lg p-0.5 text-[11px] font-bold" id="header-lang-toggle">
               <button
                 onClick={() => { if (isBM) window.location.href = '/'; }}
-                className={`px-2.5 py-1 rounded-md transition cursor-pointer ${!isBM ? 'bg-white shadow-sm text-[#4f46e5]' : 'text-[#64748b] hover:text-[#4f46e5]'}`}
+                className={`px-2.5 py-1 rounded-md transition cursor-pointer ${!isBM ? 'bg-white shadow-sm text-[#3162a6]' : 'text-[#64748b] hover:text-[#3162a6]'}`}
               >
                 EN
               </button>
               <button
                 onClick={() => { if (!isBM) window.location.href = '/bm'; }}
-                className={`px-2.5 py-1 rounded-md transition cursor-pointer ${isBM ? 'bg-white shadow-sm text-[#4f46e5]' : 'text-[#64748b] hover:text-[#4f46e5]'}`}
+                className={`px-2.5 py-1 rounded-md transition cursor-pointer ${isBM ? 'bg-white shadow-sm text-[#3162a6]' : 'text-[#64748b] hover:text-[#3162a6]'}`}
               >
                 BM
               </button>
@@ -274,7 +330,7 @@ function AppContent() {
             <div className="hidden sm:flex items-center gap-2.5 bg-[#f1f5f9] px-3.5 py-1.5 rounded-xl border border-[#e2e8f0] text-right">
               <div>
                 <span className="text-xs font-bold block text-[#1e293b]">{user.role === 'guest' ? (isBM ? 'Tetamu' : 'Guest') : user.full_name}</span>
-                <span className="text-[9px] text-[#4f46e5] font-extrabold uppercase tracking-wide leading-none">
+                <span className="text-[9px] text-[#3162a6] font-extrabold uppercase tracking-wide leading-none">
                   {user.role === 'guest' ? (isBM ? 'Akses Terhad' : 'Limited Access') : `${user.role} ${isBM ? 'Keistimewaan' : 'Privilege'}`}
                 </span>
               </div>
@@ -287,7 +343,7 @@ function AppContent() {
               <button
                 id="btn-guest-signin"
                 onClick={handleLogout}
-                className="sleek-btn-secondary border-[#c7d2fe] bg-white p-2 py-1.5 text-xs font-bold text-[#4f46e5] hover:bg-[#eef2ff] flex items-center gap-1 cursor-pointer"
+                className="sleek-btn-secondary border-[#b6d3ea] bg-white p-2 py-1.5 text-xs font-bold text-[#3162a6] hover:bg-[#eef5fb] flex items-center gap-1 cursor-pointer"
               >
                 <LogIn className="h-3.5 w-3.5" />
                 {isBM ? 'Log Masuk / Daftar' : 'Sign In / Register'}

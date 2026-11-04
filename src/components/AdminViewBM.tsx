@@ -875,7 +875,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
       <div className="bg-white border-b border-[#e2e8f0] sticky top-0 z-10 px-4 md:px-8 py-3" id="admin-header-nav">
         <div className="flex flex-wrap items-center justify-between gap-4 max-w-7xl mx-auto">
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center justify-center p-2.5 bg-[#4f46e5]/10 border border-[#4f46e5]/20 rounded-xl text-[#4f46e5]">
+            <span className="inline-flex items-center justify-center p-2.5 bg-[#3162a6]/10 border border-[#3162a6]/20 rounded-xl text-[#3162a6]">
               <Server className="h-4.5 w-4.5" />
             </span>
             <div id="welcome-admin">
@@ -892,7 +892,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
                 onClick={() => setActiveSubTab(tab)}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                   activeSubTab === tab 
-                    ? 'bg-[#4f46e5] text-white shadow-sm border border-[#4338ca]' 
+                    ? 'bg-[#3162a6] text-white shadow-sm border border-[#27508a]' 
                     : 'text-[#64748b] bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] hover:text-[#1e293b]'
                 }`}
               >
@@ -1199,7 +1199,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
                         <XAxis dataKey="date" tick={{ fontSize: 9 }} stroke="#64748b" />
                         <YAxis tick={{ fontSize: 9 }} stroke="#64748b" />
                         <Tooltip />
-                        <Area type="monotone" dataKey="volume" stroke="#6366f1" fill="#818cf8" fillOpacity={0.15} />
+                        <Area type="monotone" dataKey="volume" stroke="#1f75ab" fill="#4a93c4" fillOpacity={0.15} />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
@@ -1300,7 +1300,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
                   type="button"
                   onClick={handleSyncHolidays}
                   disabled={syncingHolidays}
-                  className="w-full flex items-center justify-center gap-2 border border-[#c7d2fe] bg-[#e0e7ff]/40 hover:bg-[#e0e7ff] text-[#4f46e5] rounded-xl py-2 text-xs font-bold transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-2 border border-[#b6d3ea] bg-[#d9e8f5]/40 hover:bg-[#d9e8f5] text-[#3162a6] rounded-xl py-2 text-xs font-bold transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {syncingHolidays ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DownloadCloud className="h-3.5 w-3.5" />}
                   {syncingHolidays ? 'Menyelaras...' : `Selaras Cuti ${new Date().getFullYear()}`}
@@ -1744,7 +1744,7 @@ export default function AdminViewBM({ user, token }: AdminViewProps) {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6" id="model-grid-metrics">
                 <div className="bg-white p-5 border border-slate-200 rounded-2xl text-center shadow-sm">
                   <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest leading-none">{'Min Ralat Mutlak (MAE)'}</p>
-                  <p className="text-3xl font-extrabold text-[#4F46E5] mt-3 font-mono">{modelMetrics.mae} {'penumpang'}</p>
+                  <p className="text-3xl font-extrabold text-[#3162a6] mt-3 font-mono">{modelMetrics.mae} {'penumpang'}</p>
                   <p className="text-[10px] text-slate-450 text-slate-500 mt-1 font-semibold">{'Sisihan mutlak purata dari sebenar'}</p>
                 </div>
 

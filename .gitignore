@@ -16,3 +16,7 @@ ml/predictions_by_date.csv
 attractions_cache.json
 
 ml/__pycache__/
+
+# Local Playwright CLI artifacts
+.playwright-cli/
+

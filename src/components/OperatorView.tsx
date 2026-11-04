@@ -342,7 +342,7 @@ export default function OperatorView({ user, token }: OperatorViewProps) {
       <div className="bg-white border-b border-[#e2e8f0] sticky top-0 z-10 px-4 md:px-8 py-3" id="op-nav-menu">
         <div className="flex flex-wrap items-center justify-between gap-4 max-w-7xl mx-auto">
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center justify-center p-2.5 bg-[#4f46e5]/10 border border-[#4f46e5]/20 rounded-xl text-[#4f46e5]">
+            <span className="inline-flex items-center justify-center p-2.5 bg-[#3162a6]/10 border border-[#3162a6]/20 rounded-xl text-[#3162a6]">
               <BarChart3 className="h-4.5 w-4.5" />
             </span>
             <div id="welcome-op">
@@ -357,7 +357,7 @@ export default function OperatorView({ user, token }: OperatorViewProps) {
               onClick={() => { setActiveSubTab('analytics'); fetchAnalytics(); }}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                 activeSubTab === 'analytics' 
-                  ? 'bg-[#4f46e5] text-white shadow-sm border border-[#4338ca]' 
+                  ? 'bg-[#3162a6] text-white shadow-sm border border-[#27508a]' 
                   : 'text-[#64748b] bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] hover:text-[#1e293b]'
               }`}
             >
@@ -368,7 +368,7 @@ export default function OperatorView({ user, token }: OperatorViewProps) {
               onClick={() => setActiveSubTab('predict')}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                 activeSubTab === 'predict' 
-                  ? 'bg-[#4f46e5] text-white shadow-sm border border-[#4338ca]' 
+                  ? 'bg-[#3162a6] text-white shadow-sm border border-[#27508a]' 
                   : 'text-[#64748b] bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] hover:text-[#1e293b]'
               }`}
             >
@@ -379,7 +379,7 @@ export default function OperatorView({ user, token }: OperatorViewProps) {
               onClick={() => setActiveSubTab('profile')}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                 activeSubTab === 'profile' 
-                  ? 'bg-[#4f46e5] text-white shadow-sm border border-[#4338ca]' 
+                  ? 'bg-[#3162a6] text-white shadow-sm border border-[#27508a]' 
                   : 'text-[#64748b] bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] hover:text-[#1e293b]'
               }`}
             >
@@ -390,7 +390,7 @@ export default function OperatorView({ user, token }: OperatorViewProps) {
               onClick={() => { setActiveSubTab('reports'); }}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                 activeSubTab === 'reports' 
-                  ? 'bg-[#4f46e5] text-white shadow-sm border border-[#4338ca]' 
+                  ? 'bg-[#3162a6] text-white shadow-sm border border-[#27508a]' 
                   : 'text-[#64748b] bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] hover:text-[#1e293b]'
               }`}
             >
@@ -441,7 +441,7 @@ export default function OperatorView({ user, token }: OperatorViewProps) {
                           <XAxis dataKey="state" tick={{ fontSize: 9 }} stroke="#64748b" />
                           <YAxis tick={{ fontSize: 9 }} stroke="#64748b" />
                           <Tooltip wrapperStyle={{ fontSize: 11, fontFamily: 'sans-serif' }} />
-                          <Bar dataKey="ridership" name={'Total Ridership'} fill="#6366f1" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="ridership" name={'Total Ridership'} fill="#1f75ab" radius={[4, 4, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -868,7 +868,7 @@ export default function OperatorView({ user, token }: OperatorViewProps) {
             {/* Left Box: Account Context */}
             <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col justify-between" id="profile-details-wrapper">
               <div>
-                <span className="bg-indigo-50 border border-indigo-100 text-[#4f46e5] text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md">
+                <span className="bg-indigo-50 border border-indigo-100 text-[#3162a6] text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md">
                   {'Active Session'}
                 </span>
                 <h3 className="font-display text-lg font-bold text-slate-800 mt-2">{'Identity Credentials'}</h3>
@@ -887,7 +887,7 @@ export default function OperatorView({ user, token }: OperatorViewProps) {
 
                   <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
                     <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">{'Assigned Privilege Role'}</span>
-                    <span className="text-xs font-bold bg-[#e0e7ff] text-[#4f46e5] px-2 py-0.5 rounded-full inline-block uppercase tracking-wide mt-1">
+                    <span className="text-xs font-bold bg-[#d9e8f5] text-[#3162a6] px-2 py-0.5 rounded-full inline-block uppercase tracking-wide mt-1">
                       {user.role}
                     </span>
                   </div>
